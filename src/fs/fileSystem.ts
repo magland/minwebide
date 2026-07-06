@@ -1,0 +1,64 @@
+import { VSBuffer } from 'vs/base/common/buffer';
+import { IndexedDB } from 'vs/base/browser/indexedDB';
+import { dirname } from 'vs/base/common/resources';
+import { URI } from 'vs/base/common/uri';
+import { IndexedDBFileSystemProvider } from 'vs/platform/files/browser/indexedDBFileSystemProvider';
+import { FileService } from 'vs/platform/files/common/fileService';
+import { NullLogService } from 'vs/platform/log/common/log';
+
+export interface IndexedDBFileSystemOptions {
+	/** URI scheme for workspace files. Default: 'minwebide'. */
+	readonly scheme?: string;
+	/** IndexedDB database name. Default: 'minwebide-workspace'. */
+	readonly dbName?: string;
+}
+
+export interface WorkspaceFileSystem {
+	/** VS Code's own FileService, backed by IndexedDB. */
+	readonly fileService: FileService;
+	readonly scheme: string;
+	/** Root folder of the workspace. */
+	readonly root: URI;
+	/** Write the given path → contents map, skipping files that already exist. */
+	seed(files: Record<string, string>): Promise<void>;
+	dispose(): void;
+}
+
+/**
+ * Creates a browser file system persisted in IndexedDB, using VS Code's own
+ * IndexedDBFileSystemProvider (the one behind vscode.dev) registered on VS
+ * Code's own FileService.
+ */
+export async function createIndexedDBFileSystem(options: IndexedDBFileSystemOptions = {}): Promise<WorkspaceFileSystem> {
+	const scheme = options.scheme ?? 'minwebide';
+	const dbName = options.dbName ?? 'minwebide-workspace';
+	const store = 'workspace-files';
+
+	const indexedDB = await IndexedDB.create(dbName, 1, [store]);
+	const fileService = new FileService(new NullLogService());
+	const provider = new IndexedDBFileSystemProvider(scheme, indexedDB, store, true);
+	fileService.registerProvider(scheme, provider);
+
+	const root = URI.from({ scheme, authority: '', path: '/' });
+
+	return {
+		fileService,
+		scheme,
+		root,
+		async seed(files: Record<string, string>): Promise<void> {
+			for (const [path, contents] of Object.entries(files)) {
+				const resource = root.with({ path: path.startsWith('/') ? path : `/${path}` });
+				if (await fileService.exists(resource)) {
+					continue;
+				}
+				await fileService.createFolder(dirname(resource));
+				await fileService.writeFile(resource, VSBuffer.fromString(contents));
+			}
+		},
+		dispose(): void {
+			provider.dispose();
+			fileService.dispose();
+			indexedDB.close();
+		},
+	};
+}

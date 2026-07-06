@@ -1,0 +1,106 @@
+# minwebide
+
+A minimalistic web IDE built from VS Code's own source code.
+
+Rather than building the full VS Code workbench (which is enormous), minwebide
+imports individual modules straight out of a pinned checkout of
+[microsoft/vscode](https://github.com/microsoft/vscode) and adds only a thin
+shell around them. The result looks and behaves like VS Code because, wherever
+possible, it *is* VS Code's code — same editor, same widgets, same colors,
+same icons, same grammars.
+
+## What comes from the VS Code source tree
+
+| Piece | VS Code module |
+| --- | --- |
+| Editor (Monaco) | `vs/editor/editor.api` + `editorWebWorkerMain` worker |
+| File system | `vs/platform/files/browser/indexedDBFileSystemProvider` (the one behind vscode.dev) registered on `vs/platform/files/common/fileService` |
+| Explorer / search trees | `vs/base/browser/ui/tree` (`AsyncDataTree`, `ObjectTree`) |
+| Resizable layout | `vs/base/browser/ui/splitview` |
+| Search input | `vs/base/browser/ui/findinput` (case/word/regex toggles) |
+| Colors | `vs/platform/theme` color registry + `vs/workbench/common/theme`, applied as the same `--vscode-*` CSS variables the workbench uses |
+| Color themes | the actual theme JSONs from `extensions/theme-defaults` (Dark Modern etc.) |
+| Icons | codicons (`vs/base/.../codicon.css` + runtime icon registry stylesheet) |
+| Syntax highlighting | the actual TextMate grammars from `extensions/*/syntaxes`, run by `vscode-textmate` + `vscode-oniguruma` (VS Code's own libraries) through VS Code's `TextMateTokenizationSupport` |
+| Languages | language contributions (file extensions, aliases, configs) parsed from the built-in extensions' manifests |
+| Terminal UI | `@xterm/xterm` (VS Code's terminal frontend), themed from the color theme |
+
+The thin shell that minwebide adds itself (tabs, activity bar, status bar,
+panel chrome, the workbench assembly) is styled exclusively with `--vscode-*`
+theme variables, so any VS Code color theme applies to all of it.
+
+## Setup
+
+```sh
+npm install   # postinstall shallow-clones the pinned VS Code tag into vendor/vscode
+npm run dev   # start the demo app
+```
+
+- `.vscode-version` pins the VS Code release (currently 1.127.0);
+  `scripts/fetch-vscode.sh` fetches it into `vendor/vscode` (gitignored).
+- `npm run build` produces a static bundle (~780 kB gzipped core + lazy chunks
+  per grammar/theme).
+- `npm run typecheck` typechecks `src/` and `demo/` (diagnostics inside
+  `vendor/` are counted but not failing — they come from TS-version and
+  ambient-type differences with VS Code's own build setup and never affect the
+  bundle, which is transpiled by esbuild).
+- `npm run smoke` runs a headless end-to-end test (edit → Ctrl+S → reload →
+  persisted; search; terminal) against the built app. Requires Chrome.
+
+## Using the library
+
+`src/` is a framework-agnostic TypeScript library; `demo/` is a small app that
+exercises it:
+
+```ts
+import { createIndexedDBFileSystem, createWorkbench, loadColorTheme, registerTextMateSupport } from 'minwebide';
+
+const fs = await createIndexedDBFileSystem({ dbName: 'my-app' });
+await fs.seed({ '/hello.ts': 'console.log("hi")' });
+
+const theme = await loadColorTheme('/vendor/.../dark_modern.json', readThemeFile);
+await registerTextMateSupport({ onigWasmUrl, extensions, readExtensionFile, theme });
+
+const workbench = createWorkbench(document.getElementById('app')!, {
+  fileSystem: fs,
+  theme,
+  workspaceName: 'my workspace',
+});
+workbench.openFile(fs.root.with({ path: '/hello.ts' }));
+```
+
+The `fs.fileService` property is VS Code's full `FileService`, so application
+code can read/write/watch workspace files with the same API VS Code uses
+internally. `workbench.editorArea.editor` is a real
+`monaco.editor.IStandaloneCodeEditor`.
+
+Because the library imports `vs/*` modules from source, consuming apps need
+the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
+
+1. alias `vs` → `vendor/vscode/src/vs`
+2. TypeScript flags compatible with the VS Code source
+   (`useDefineForClassFields: false`, `experimentalDecorators: true`)
+
+## Layout
+
+- `src/` — the library
+  - `fs/` — IndexedDB file system (VS Code provider + FileService)
+  - `theme/` — VS Code color theme loading, CSS variable application, editor theme
+  - `textmate/` — language registration + TextMate tokenization
+  - `editor/` — Monaco re-export with worker wiring
+  - `workbench/` — the shell: workbench assembly, explorer, search, editor area, panel, terminal, activity/status bars
+- `demo/` — demo IDE app (Vite root is the repo root, `index.html`)
+- `vendor/vscode/` — pinned VS Code source checkout (not committed)
+- `scripts/` — vendor fetch, asset setup, typecheck gate, headless smoke test
+
+## Updating VS Code
+
+Bump `.vscode-version`, run `bash scripts/fetch-vscode.sh`, rebuild, and fix
+whatever changed upstream. Everything reused from the tree is imported by
+explicit module path, so breakage surfaces at build/typecheck time.
+
+## License
+
+minwebide is MIT. The VS Code source it consumes is Copyright (c) Microsoft
+Corporation, MIT-licensed (Code - OSS). The bundled output includes MIT-licensed
+code from microsoft/vscode, vscode-textmate, vscode-oniguruma, and xterm.js.

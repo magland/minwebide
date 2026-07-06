@@ -1,0 +1,31 @@
+{
+  "name": "minwebide",
+  "version": "0.1.0",
+  "description": "A minimalistic web IDE built from VS Code's own source code",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "bash scripts/fetch-vscode.sh && bash scripts/setup-assets.sh",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "bash scripts/typecheck.sh",
+    "smoke": "node scripts/smoke.mjs ."
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.46-21",
+    "@xterm/addon-fit": "^0.12.0-beta.288",
+    "@xterm/xterm": "^6.1.0-beta.285",
+    "vscode-oniguruma": "1.7.0",
+    "vscode-textmate": "^9.3.2"
+  },
+  "devDependencies": {
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "@webgpu/types": "^0.1.71",
+    "playwright": "^1.61.1",
+    "trusted-types": "^2.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  }
+}

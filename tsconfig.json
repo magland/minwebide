@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2024", "ESNext.Disposable", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "useUnknownInCatchVariables": false,
+    "exactOptionalPropertyTypes": false,
+    "useDefineForClassFields": false,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "vs/*": ["./vendor/vscode/src/vs/*"]
+    },
+    "types": ["vite/client", "@webgpu/types", "@types/wicg-file-system-access"]
+  },
+  "include": ["src", "demo", "vendor/vscode/src/typings"]
+}

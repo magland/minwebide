@@ -1,0 +1,345 @@
+/* The thin minwebide shell. All colors come from the --vscode-* variables that
+ * applyThemeToElement() defines from a real VS Code color theme, so this reads
+ * like VS Code's own workbench CSS. */
+
+.minwebide-workbench {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+	background-color: var(--vscode-editor-background);
+	color: var(--vscode-foreground);
+	font-size: 13px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.mw-main {
+	flex: 1;
+	display: flex;
+	min-height: 0;
+}
+
+/* ---- activity bar ---- */
+
+.mw-activitybar {
+	width: 48px;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--vscode-activityBar-background);
+	border-right: 1px solid var(--vscode-activityBar-border, transparent);
+}
+
+.mw-activitybar-item {
+	position: relative;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	color: var(--vscode-activityBar-inactiveForeground);
+}
+
+.mw-activitybar-item .codicon {
+	font-size: 24px;
+}
+
+.mw-activitybar-item:hover,
+.mw-activitybar-item.active {
+	color: var(--vscode-activityBar-foreground);
+}
+
+.mw-activitybar-item.active::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background-color: var(--vscode-activityBar-activeBorder);
+}
+
+/* ---- side bar ---- */
+
+.mw-sidebar {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--vscode-sideBar-background);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	border-right: 1px solid var(--vscode-sideBar-border, transparent);
+}
+
+.mw-sidebar-title {
+	height: 35px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	padding: 0 20px;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	white-space: nowrap;
+	overflow: hidden;
+	color: var(--vscode-sideBarTitle-foreground);
+}
+
+.mw-sidebar-body {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+.mw-sidebar-pane {
+	position: absolute;
+	inset: 0;
+}
+
+.mw-explorer-item {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	overflow: hidden;
+}
+
+.mw-explorer-item .codicon {
+	flex-shrink: 0;
+	color: var(--vscode-icon-foreground);
+}
+
+.mw-explorer-item-label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ---- search view ---- */
+
+.mw-search {
+	display: flex;
+	flex-direction: column;
+}
+
+.mw-search-input {
+	padding: 8px 12px 6px;
+}
+
+.mw-search-message {
+	padding: 0 12px 6px;
+	min-height: 16px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mw-search-results {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+.mw-search-file {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	overflow: hidden;
+}
+
+.mw-search-file .codicon {
+	flex-shrink: 0;
+	color: var(--vscode-icon-foreground);
+}
+
+.mw-search-file-name {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mw-search-badge {
+	margin-left: auto;
+	margin-right: 8px;
+	padding: 0 6px;
+	border-radius: 11px;
+	font-size: 11px;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.mw-search-match {
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.mw-search-match .highlight {
+	background-color: var(--vscode-editor-findMatchHighlightBackground);
+	color: inherit;
+}
+
+/* ---- editor area ---- */
+
+.mw-editor-area {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--vscode-editor-background);
+}
+
+.mw-tabs {
+	height: 35px;
+	flex-shrink: 0;
+	display: flex;
+	background-color: var(--vscode-editorGroupHeader-tabsBackground);
+	border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder, transparent);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.mw-tab {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0 6px 0 10px;
+	max-width: 240px;
+	cursor: pointer;
+	white-space: nowrap;
+	background-color: var(--vscode-tab-inactiveBackground);
+	color: var(--vscode-tab-inactiveForeground);
+	border-right: 1px solid var(--vscode-tab-border, transparent);
+	border-top: 1px solid transparent;
+}
+
+.mw-tab.active {
+	background-color: var(--vscode-tab-activeBackground);
+	color: var(--vscode-tab-activeForeground);
+	border-top-color: var(--vscode-tab-activeBorderTop, transparent);
+	border-bottom: 1px solid var(--vscode-tab-activeBorder, transparent);
+}
+
+.mw-tab-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mw-tab-close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 5px;
+	flex-shrink: 0;
+}
+
+.mw-tab-close:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.mw-tab:not(.dirty):not(.active):not(:hover) .mw-tab-close {
+	visibility: hidden;
+}
+
+.mw-editor-container {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+.mw-watermark {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	color: var(--vscode-editorWatermark-foreground, var(--vscode-descriptionForeground));
+}
+
+.mw-watermark .codicon {
+	font-size: 48px;
+	opacity: 0.5;
+}
+
+/* ---- panel ---- */
+
+.mw-panel {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--vscode-panel-background);
+	border-top: 1px solid var(--vscode-panel-border, transparent);
+}
+
+.mw-panel-header {
+	height: 35px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	gap: 4px;
+}
+
+.mw-panel-tab {
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	height: 100%;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	cursor: pointer;
+	color: var(--vscode-panelTitle-inactiveForeground);
+	border-bottom: 1px solid transparent;
+}
+
+.mw-panel-tab.active {
+	color: var(--vscode-panelTitle-activeForeground);
+	border-bottom-color: var(--vscode-panelTitle-activeBorder);
+}
+
+.mw-panel-body {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+/* ---- status bar ---- */
+
+.mw-statusbar {
+	height: 22px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	padding: 0 10px;
+	gap: 3px;
+	font-size: 12px;
+	background-color: var(--vscode-statusBar-background);
+	color: var(--vscode-statusBar-foreground);
+	border-top: 1px solid var(--vscode-statusBar-border, transparent);
+}
+
+.mw-statusbar-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 5px;
+	height: 100%;
+	white-space: nowrap;
+}
+
+.mw-statusbar-item.clickable {
+	cursor: pointer;
+}
+
+.mw-statusbar-item.clickable:hover {
+	background-color: var(--vscode-statusBarItem-hoverBackground);
+}
+
+.mw-statusbar-item .codicon {
+	font-size: 14px;
+}
+
+.mw-statusbar-spacer {
+	flex: 1;
+}
