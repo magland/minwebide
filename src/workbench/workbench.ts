@@ -22,7 +22,6 @@ import { Panel } from './panel';
 import { FileRunner, RunnerRegistry } from './runners';
 import { SearchView } from './searchView';
 import { StatusBar } from './statusBar';
-import { TerminalView } from './terminal';
 
 export interface WorkbenchOptions {
 	readonly fileSystem: WorkspaceFileSystem;
@@ -67,7 +66,6 @@ export class Workbench extends Disposable {
 	readonly search: SearchView;
 	readonly editorArea: EditorArea;
 	readonly panel: Panel;
-	readonly terminal: TerminalView;
 	readonly statusBar: StatusBar;
 	readonly activityBar: ActivityBar;
 	readonly customEditors = new CustomEditorRegistry();
@@ -141,7 +139,6 @@ export class Workbench extends Disposable {
 		this.panel = this._register(new Panel());
 		this.explorer = this._register(new ExplorerView(options.fileSystem));
 		this.search = this._register(new SearchView(options.fileSystem));
-		this.terminal = this._register(new TerminalView(options.fileSystem, options.theme));
 		this.output = this._register(new OutputView(editorThemeName, () => this.panel.setActive('output')));
 
 		this.outerSplit = this._register(new SplitView(splitsEl, { orientation: Orientation.HORIZONTAL, proportionalLayout: false }));
@@ -183,12 +180,6 @@ export class Workbench extends Disposable {
 		})));
 
 		// panel tabs
-		this.panel.addTab({
-			id: 'terminal',
-			title: 'Terminal',
-			element: this.terminal.element,
-			onLayout: () => this.terminal.layout(),
-		});
 		this.panel.addTab({
 			id: 'output',
 			title: 'Output',
@@ -236,7 +227,6 @@ export class Workbench extends Disposable {
 
 		this.showSideView('explorer');
 		this.explorer.setRoot();
-		this.terminal.open();
 	}
 
 	registerSideView(id: string, title: string, element: HTMLElement, onShow?: () => void): void {

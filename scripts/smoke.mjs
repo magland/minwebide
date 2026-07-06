@@ -107,20 +107,6 @@ try {
 	console.log(ranOk ? 'RUNNER OK' : `RUNNER FAILED: ${JSON.stringify(outputText.slice(0, 200))}`);
 	await page.screenshot({ path: process.argv[2] + '/runner.png' });
 
-	// drive the terminal (reactivate its panel tab first)
-	await page.locator('.mw-panel-tab', { hasText: 'Terminal' }).click();
-	await page.waitForTimeout(300);
-	await page.locator('.mw-terminal').click();
-	await page.keyboard.type('ls');
-	await page.keyboard.press('Enter');
-	await page.waitForTimeout(300);
-	await page.keyboard.type('cat data/config.json');
-	await page.keyboard.press('Enter');
-	await page.waitForTimeout(400);
-	await page.screenshot({ path: process.argv[2] + '/terminal.png' });
-	const termText = await page.locator('.mw-terminal').innerText();
-	console.log(termText.includes('minwebide-demo') ? 'TERMINAL OK' : 'TERMINAL FAILED');
-
 	if (errors.length) {
 		console.log('errors:');
 		for (const e of errors.slice(0, 10)) console.log('  ' + e);

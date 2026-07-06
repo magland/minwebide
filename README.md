@@ -23,7 +23,6 @@ same icons, same grammars.
 | Icons | codicons (`vs/base/.../codicon.css` + runtime icon registry stylesheet) |
 | Syntax highlighting | the actual TextMate grammars from `extensions/*/syntaxes`, run by `vscode-textmate` + `vscode-oniguruma` (VS Code's own libraries) through VS Code's `TextMateTokenizationSupport` |
 | Languages | language contributions (file extensions, aliases, configs) parsed from the built-in extensions' manifests |
-| Terminal UI | `@xterm/xterm` (VS Code's terminal frontend), themed from the color theme |
 
 The thin shell that minwebide adds itself (tabs, activity bar, status bar,
 panel chrome, the workbench assembly) is styled exclusively with `--vscode-*`
@@ -45,7 +44,7 @@ npm run dev   # start the demo app
   ambient-type differences with VS Code's own build setup and never affect the
   bundle, which is transpiled by esbuild).
 - `npm run smoke` runs a headless end-to-end test (edit → Ctrl+S → reload →
-  persisted; search; terminal) against the built app. Requires Chrome.
+  persisted; search; custom editors; runner) against the built app. Requires Chrome.
 
 ## Using the library
 
@@ -152,7 +151,7 @@ the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
   - `theme/` — VS Code color theme loading, CSS variable application, editor theme
   - `textmate/` — language registration + TextMate tokenization
   - `editor/` — Monaco re-export with worker wiring
-  - `workbench/` — the shell: workbench assembly, explorer, search, editor area, panel, terminal, activity/status bars
+  - `workbench/` — the shell: workbench assembly, explorer, search, editor area, panel with output view, activity/status bars
 - `demo/` — demo IDE app (Vite root is the repo root, `index.html`)
 - `vendor/vscode/` — pinned VS Code source checkout (not committed)
 - `scripts/` — vendor fetch, asset setup, typecheck gate, headless smoke test
@@ -167,4 +166,4 @@ explicit module path, so breakage surfaces at build/typecheck time.
 
 minwebide is MIT. The VS Code source it consumes is Copyright (c) Microsoft
 Corporation, MIT-licensed (Code - OSS). The bundled output includes MIT-licensed
-code from microsoft/vscode, vscode-textmate, vscode-oniguruma, and xterm.js.
+code from microsoft/vscode, vscode-textmate, and vscode-oniguruma.
