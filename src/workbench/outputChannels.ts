@@ -232,4 +232,15 @@ export class OutputView extends Disposable {
 			this.selectEl.value = this.activeChannel;
 		}
 	}
+
+	override dispose(): void {
+		// dispose channel models so a later workbench instance (e.g. after
+		// switching projects) starts with fresh channels
+		this.editor.setModel(null);
+		for (const data of this.channels.values()) {
+			data.model.dispose();
+		}
+		this.channels.clear();
+		super.dispose();
+	}
 }
