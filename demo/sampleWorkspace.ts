@@ -62,6 +62,26 @@ for (let i = 1; i <= 10; i++) {
 
 console.warn('warnings and errors are colorized by the log grammar');
 `,
+	'/scripts/sine-wave.js': `// Run this file (▶): console output goes to the bottom panel,
+// while plot() renders into the runner's view in the secondary side bar.
+
+const xs = [];
+const ys = [];
+for (let i = 0; i <= 200; i++) {
+	const x = (i / 200) * 4 * Math.PI;
+	xs.push(x);
+	ys.push(Math.sin(x) * Math.exp(-x / 8));
+}
+plot({ x: xs, y: ys, title: 'Damped sine wave' });
+console.log(\`plotted \${xs.length} samples\`);
+
+const primes = [];
+for (let n = 2; primes.length < 40; n++) {
+	if (primes.every((p) => n % p)) primes.push(n);
+}
+plot({ y: primes, title: 'First 40 primes', color: 'orange' });
+console.log('largest prime plotted:', primes[primes.length - 1]);
+`,
 	'/docs/notes.md': `# Notes
 
 Everything you see is either VS Code's own code (editor, file tree,

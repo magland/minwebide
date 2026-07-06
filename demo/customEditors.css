@@ -74,6 +74,43 @@
 	background-color: var(--vscode-keybindingTable-rowsBackground, transparent);
 }
 
+.demo-plots {
+	padding: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.demo-plot {
+	background-color: var(--vscode-editorWidget-background, transparent);
+	border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: 4px;
+	padding: 8px 10px 6px;
+}
+
+.demo-plot-title {
+	font-size: 12px;
+	font-weight: 600;
+	margin-bottom: 4px;
+	color: var(--vscode-foreground);
+}
+
+.demo-plot-area {
+	position: relative;
+}
+
+.demo-plot-tooltip {
+	position: absolute;
+	pointer-events: none;
+	padding: 2px 6px;
+	font-size: 11px;
+	border-radius: 3px;
+	background-color: var(--vscode-editorHoverWidget-background);
+	color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	white-space: nowrap;
+}
+
 .demo-image-viewer {
 	height: 100%;
 	display: flex;

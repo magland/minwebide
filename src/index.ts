@@ -21,6 +21,7 @@ export type { OpenFileOptions } from './workbench/editorArea';
 export type { LogOutputChannel, OutputChannel, OutputChannelOptions } from './workbench/outputChannels';
 export { RunnerRegistry } from './workbench/runners';
 export type { FileRunner, RunContext } from './workbench/runners';
+export type { AuxiliaryView } from './workbench/auxiliaryBar';
 
 export { registerTextMateSupport } from './textmate/textmate';
 export type { ExtensionManifest, TextMateSetupOptions, VendorExtension } from './textmate/textmate';

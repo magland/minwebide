@@ -397,6 +397,24 @@
 	position: relative;
 }
 
+/* ---- auxiliary bar (secondary side bar) ---- */
+
+.mw-auxbar {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background-color: var(--vscode-sideBar-background);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	border-left: 1px solid var(--vscode-sideBar-border, var(--vscode-panel-border));
+}
+
+.mw-auxbar-view {
+	position: absolute;
+	inset: 0;
+	overflow: auto;
+}
+
 /* ---- status bar ---- */
 
 .mw-statusbar {

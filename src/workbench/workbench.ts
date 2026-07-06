@@ -14,6 +14,7 @@ import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import { defineEditorTheme } from '../theme/editorTheme';
 import { applyThemeToElement, WorkbenchTheme } from '../theme/themes';
 import { ActivityBar } from './activityBar';
+import { AuxiliaryBar, AuxiliaryView } from './auxiliaryBar';
 import { CustomEditorProvider, CustomEditorRegistry } from './customEditors';
 import { EditorArea, OpenFileOptions } from './editorArea';
 import { ExplorerView } from './explorer';
@@ -71,8 +72,11 @@ export class Workbench extends Disposable {
 	readonly customEditors = new CustomEditorRegistry();
 	readonly runners = new RunnerRegistry();
 	readonly output: OutputView;
+	readonly auxiliaryBar: AuxiliaryBar;
 
 	private readonly runnerChannels = new Map<string, LogOutputChannel>();
+	private readonly runnerViews = new Map<string, AuxiliaryView>();
+	private auxBarSized = false;
 
 	private readonly outerSplit: SplitView;
 	private readonly innerSplit: SplitView;
@@ -140,6 +144,7 @@ export class Workbench extends Disposable {
 		this.explorer = this._register(new ExplorerView(options.fileSystem));
 		this.search = this._register(new SearchView(options.fileSystem));
 		this.output = this._register(new OutputView(editorThemeName, () => this.panel.setActive('output')));
+		this.auxiliaryBar = this._register(new AuxiliaryBar((visible) => this.setAuxiliaryBarVisible(visible)));
 
 		this.outerSplit = this._register(new SplitView(splitsEl, { orientation: Orientation.HORIZONTAL, proportionalLayout: false }));
 		this.outerSplit.addView(new ElementView(sidebarEl, 170, LayoutPriority.Low, (size) => {
@@ -151,6 +156,8 @@ export class Workbench extends Disposable {
 			this.editorArea.layout(size, this.editorHeight);
 			this.panel.layout(size, this.panelHeight);
 		}), Sizing.Distribute);
+		this.outerSplit.addView(new ElementView(this.auxiliaryBar.element, 150, LayoutPriority.Low, () => { }), 300);
+		this.outerSplit.setViewVisible(2, false);
 
 		this.innerSplit = this._register(new SplitView(columnEl, { orientation: Orientation.VERTICAL, proportionalLayout: false }));
 		this.innerSplit.addView(new ElementView(this.editorArea.element, 100, LayoutPriority.High, (size) => {
@@ -274,6 +281,21 @@ export class Workbench extends Disposable {
 		return disposable;
 	}
 
+	/** Creates a view in the secondary side bar (right of the editor). */
+	createAuxiliaryView(id: string, title: string): AuxiliaryView {
+		return this.auxiliaryBar.createView(id, title);
+	}
+
+	setAuxiliaryBarVisible(visible: boolean): void {
+		this.outerSplit.setViewVisible(2, visible);
+		if (visible && !this.auxBarSized) {
+			// the view was added while the container was unsized; give it a
+			// sensible width on first reveal
+			this.auxBarSized = true;
+			this.outerSplit.resizeView(2, 320);
+		}
+	}
+
 	private async runFile(runner: FileRunner, uri: URI): Promise<void> {
 		let channel = this.runnerChannels.get(runner.id);
 		if (!channel) {
@@ -294,6 +316,14 @@ export class Workbench extends Disposable {
 				},
 				readBytes: async () => (await this.options.fileSystem.fileService.readFile(uri)).value.buffer,
 				output: channel,
+				getView: () => {
+					let view = this.runnerViews.get(runner.id);
+					if (!view) {
+						view = this.auxiliaryBar.createView(runner.id, runner.displayName);
+						this.runnerViews.set(runner.id, view);
+					}
+					return view;
+				},
 			});
 		} catch (error) {
 			channel.error(error instanceof Error ? error : String(error));

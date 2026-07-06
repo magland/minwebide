@@ -107,6 +107,17 @@ try {
 	console.log(ranOk ? 'RUNNER OK' : `RUNNER FAILED: ${JSON.stringify(outputText.slice(0, 200))}`);
 	await page.screenshot({ path: process.argv[2] + '/runner.png' });
 
+	// run a file that also produces plots: text → bottom panel, plots → aux bar
+	await page.getByText('sine-wave.js', { exact: true }).click();
+	await page.waitForTimeout(600);
+	await page.locator('.mw-tab-action[title="Run JavaScript"]').click();
+	await page.waitForTimeout(1200);
+	const auxBox = await page.locator('.mw-auxbar').boundingBox();
+	const plotCount = await page.locator('.demo-plot svg').count();
+	const plotsOk = auxBox && auxBox.width > 100 && plotCount === 2;
+	console.log(plotsOk ? `PLOT VIEW OK (aux width ${Math.round(auxBox.width)}, ${plotCount} plots)` : `PLOT VIEW FAILED (aux ${JSON.stringify(auxBox)}, plots ${plotCount})`);
+	await page.screenshot({ path: process.argv[2] + '/plots.png' });
+
 	if (errors.length) {
 		console.log('errors:');
 		for (const e of errors.slice(0, 10)) console.log('  ' + e);

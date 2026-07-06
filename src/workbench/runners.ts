@@ -1,5 +1,6 @@
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
+import type { AuxiliaryView } from './auxiliaryBar';
 import { CustomEditorSelector, matchesSelector } from './customEditors';
 import type { LogOutputChannel } from './outputChannels';
 
@@ -18,6 +19,12 @@ export interface RunContext {
 	readBytes(): Promise<Uint8Array>;
 	/** This runner's output channel; already revealed when run() is invoked. */
 	readonly output: LogOutputChannel;
+	/**
+	 * This runner's view in the secondary side bar (right of the editor),
+	 * created on first call — for rich output (plots, tables, ...) whose
+	 * rendering the runner fully controls. Call `.show()` to reveal it.
+	 */
+	getView(): AuxiliaryView;
 }
 
 export interface FileRunner {

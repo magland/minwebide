@@ -137,6 +137,28 @@ workbench.registerRunner({
 `getText()` returns the open editor's (possibly unsaved) contents; the demo
 registers a JavaScript runner with a captured console and a word-count runner.
 
+For rich output (plots, tables, ...) a run context also has `getView()`: it
+lazily creates the runner's view in the **secondary side bar** (right of the
+editor — where VS Code extensions like Julia's plot pane dock tool-owned
+views) and hands the runner a plain DOM container whose rendering it fully
+controls. `view.show()` reveals it. Text belongs in the output channel; rich
+things belong in the view:
+
+```ts
+async run({ getText, output, getView }) {
+  output.info('running…');                 // → bottom panel
+  const view = getView();
+  view.element.replaceChildren(renderMyPlot(await getText()));
+  view.show();                             // → secondary side bar
+}
+```
+
+Apps can also create side bar views unrelated to runners with
+`workbench.createAuxiliaryView(id, title)`. The demo's JavaScript runner
+injects a `plot()` function into executed scripts (see
+`scripts/sine-wave.js` in the sample workspace), themed with VS Code's own
+`charts.*` colors.
+
 Because the library imports `vs/*` modules from source, consuming apps need
 the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
 
@@ -151,7 +173,7 @@ the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
   - `theme/` — VS Code color theme loading, CSS variable application, editor theme
   - `textmate/` — language registration + TextMate tokenization
   - `editor/` — Monaco re-export with worker wiring
-  - `workbench/` — the shell: workbench assembly, explorer, search, editor area, panel with output view, activity/status bars
+  - `workbench/` — the shell: workbench assembly, explorer, search, editor area, panel with output view, secondary side bar, activity/status bars
 - `demo/` — demo IDE app (Vite root is the repo root, `index.html`)
 - `vendor/vscode/` — pinned VS Code source checkout (not committed)
 - `scripts/` — vendor fetch, asset setup, typecheck gate, headless smoke test
