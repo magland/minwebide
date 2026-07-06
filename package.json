@@ -5,6 +5,12 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite": "./vite.mjs",
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "postinstall": "bash scripts/fetch-vscode.sh && bash scripts/setup-assets.sh",
     "dev": "vite",

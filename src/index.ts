@@ -26,6 +26,8 @@ export type { AuxiliaryView } from './workbench/auxiliaryBar';
 export { registerTextMateSupport } from './textmate/textmate';
 export type { ExtensionManifest, TextMateSetupOptions, VendorExtension } from './textmate/textmate';
 
+export { builtinThemeNames, loadBuiltinTheme, registerBuiltinLanguages } from './presets/builtin';
+
 export * as monaco from './editor/monaco';
 
 export { URI } from 'vs/base/common/uri';

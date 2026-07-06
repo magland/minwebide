@@ -46,19 +46,46 @@ npm run dev   # start the demo app
 - `npm run smoke` runs a headless end-to-end test (edit → Ctrl+S → reload →
   persisted; search; custom editors; runner) against the built app. Requires Chrome.
 
+## Building apps on minwebide
+
+minwebide is distributed as *source* (its `package.json` exports point at
+`src/*.ts`; Vite compiles it as part of the app). To start a new app repo:
+
+```sh
+bash scripts/create-app.sh ../my-app
+cd ../my-app && git init && npm install && npm run dev
+```
+
+The scaffolded app is ~6 files. It consumes minwebide as a **local path
+dependency** (`"minwebide": "file:../minwebide"`, symlinked by npm), which is
+the intended mode while the API is still in flux:
+
+- library edits appear in every app immediately — no publish step;
+- breaking changes surface as build/typecheck errors in the app, so both
+  sides get fixed together;
+- all apps share this repo's single `vendor/vscode` checkout — apps never
+  fetch their own.
+
+The build conventions live in minwebide, not in each app:
+`vite.config.ts` is two lines (`mergeConfig(minwebide(), {...})` from
+`minwebide/vite`) and `tsconfig.json` extends `minwebide/tsconfig.base.json`.
+When the API stabilizes, pin apps by switching the dependency line to a git
+tag (`github:<user>/minwebide#v0.x`) or a published package — nothing else in
+the app changes.
+
 ## Using the library
 
 `src/` is a framework-agnostic TypeScript library; `demo/` is a small app that
 exercises it:
 
 ```ts
-import { createIndexedDBFileSystem, createWorkbench, loadColorTheme, registerTextMateSupport } from 'minwebide';
+import { createIndexedDBFileSystem, createWorkbench, loadBuiltinTheme, registerBuiltinLanguages } from 'minwebide';
 
 const fs = await createIndexedDBFileSystem({ dbName: 'my-app' });
 await fs.seed({ '/hello.ts': 'console.log("hi")' });
 
-const theme = await loadColorTheme('/vendor/.../dark_modern.json', readThemeFile);
-await registerTextMateSupport({ onigWasmUrl, extensions, readExtensionFile, theme });
+const theme = await loadBuiltinTheme('dark_modern');   // any theme in extensions/theme-defaults
+await registerBuiltinLanguages(theme);                 // all built-in grammars + file associations
 
 const workbench = createWorkbench(document.getElementById('app')!, {
   fileSystem: fs,
@@ -175,8 +202,10 @@ the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
   - `editor/` — Monaco re-export with worker wiring
   - `workbench/` — the shell: workbench assembly, explorer, search, editor area, panel with output view, secondary side bar, activity/status bars
 - `demo/` — demo IDE app (Vite root is the repo root, `index.html`)
+- `templates/app/` — starter for new app repos (see `scripts/create-app.sh`)
 - `vendor/vscode/` — pinned VS Code source checkout (not committed)
-- `scripts/` — vendor fetch, asset setup, typecheck gate, headless smoke test
+- `scripts/` — vendor fetch, asset setup, app scaffolding, typecheck gate, headless smoke test
+- `vite.mjs`, `tsconfig.base.json` — the build conventions apps import (`minwebide/vite`, `minwebide/tsconfig.base.json`)
 
 ## Updating VS Code
 
