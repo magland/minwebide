@@ -21,6 +21,10 @@ export interface WorkspaceFileSystem {
 	readonly root: URI;
 	/** Write the given path → contents map, skipping files that already exist. */
 	seed(files: Record<string, string | Uint8Array>): Promise<void>;
+	/** Write (create or overwrite) a single file, creating parent folders. */
+	writeFile(path: string, contents: string | Uint8Array): Promise<void>;
+	/** Delete a file if it exists. */
+	deleteFile(path: string): Promise<void>;
 	dispose(): void;
 }
 
@@ -54,6 +58,18 @@ export async function createIndexedDBFileSystem(options: IndexedDBFileSystemOpti
 				await fileService.createFolder(dirname(resource));
 				const buffer = typeof contents === 'string' ? VSBuffer.fromString(contents) : VSBuffer.wrap(contents);
 				await fileService.writeFile(resource, buffer);
+			}
+		},
+		async writeFile(path: string, contents: string | Uint8Array): Promise<void> {
+			const resource = root.with({ path: path.startsWith('/') ? path : `/${path}` });
+			await fileService.createFolder(dirname(resource));
+			const buffer = typeof contents === 'string' ? VSBuffer.fromString(contents) : VSBuffer.wrap(contents);
+			await fileService.writeFile(resource, buffer);
+		},
+		async deleteFile(path: string): Promise<void> {
+			const resource = root.with({ path: path.startsWith('/') ? path : `/${path}` });
+			if (await fileService.exists(resource)) {
+				await fileService.del(resource, { recursive: true });
 			}
 		},
 		dispose(): void {

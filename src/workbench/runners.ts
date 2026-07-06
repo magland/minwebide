@@ -34,6 +34,13 @@ export interface FileRunner {
 	readonly displayName: string;
 	readonly selector: readonly CustomEditorSelector[];
 	run(context: RunContext): void | Promise<void>;
+	/**
+	 * Interrupt an in-flight run (the analog of an extension's paired stop
+	 * command in `editor/title/run`). While `run()` is pending, the tab's ▶
+	 * action becomes a stop button invoking this; `run()` should resolve
+	 * promptly afterwards. Omit for fire-and-forget runners.
+	 */
+	stop?(uri: URI): void;
 }
 
 export class RunnerRegistry {

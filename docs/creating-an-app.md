@@ -109,6 +109,9 @@ IndexedDB using VS Code's own provider (the one behind vscode.dev).
   `fs.root.with({ path: '/some/file.ts' })`.
 - `fs.seed(files)` — writes a `path → string | Uint8Array` map, **skipping
   files that already exist** (safe to call on every startup).
+- `fs.writeFile(path, contents)` / `fs.deleteFile(path)` — single-file
+  create-or-overwrite (parent folders included) and delete, taking `string |
+  Uint8Array` — no `VSBuffer` needed.
 - `fs.fileService` — VS Code's full `FileService`. The APIs your app will use
   most:
 
@@ -267,6 +270,11 @@ workbench.registerRunner({
 ```
 
 Errors thrown from `run()` land in the channel as `[error]` lines.
+
+A runner may also declare `stop(uri)` — while `run()` is pending, the tab's
+▶ action becomes a ⏹ stop button that invokes it (e.g. terminate the worker
+doing the work); `run()` should then resolve promptly. While a runner is
+running, re-clicks are ignored; without `stop()` the ▶ button just stays.
 
 ## 9. Rich output: the secondary side bar
 

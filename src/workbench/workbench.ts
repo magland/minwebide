@@ -76,6 +76,7 @@ export class Workbench extends Disposable {
 
 	private readonly runnerChannels = new Map<string, LogOutputChannel>();
 	private readonly runnerViews = new Map<string, AuxiliaryView>();
+	private readonly runningRunners = new Set<string>();
 	private auxBarSized = false;
 
 	private readonly outerSplit: SplitView;
@@ -139,6 +140,7 @@ export class Workbench extends Disposable {
 			this.customEditors,
 			this.runners,
 			(runner, uri) => this.runFile(runner, uri),
+			(runner) => this.runningRunners.has(runner.id),
 		));
 		this.panel = this._register(new Panel());
 		this.explorer = this._register(new ExplorerView(options.fileSystem));
@@ -297,12 +299,17 @@ export class Workbench extends Disposable {
 	}
 
 	private async runFile(runner: FileRunner, uri: URI): Promise<void> {
+		if (this.runningRunners.has(runner.id)) {
+			return;
+		}
 		let channel = this.runnerChannels.get(runner.id);
 		if (!channel) {
 			channel = this.output.createChannel(runner.displayName, { log: true });
 			this.runnerChannels.set(runner.id, channel);
 		}
 		channel.show();
+		this.runningRunners.add(runner.id);
+		this.editorArea.refreshActions();
 		try {
 			await runner.run({
 				uri,
@@ -327,6 +334,9 @@ export class Workbench extends Disposable {
 			});
 		} catch (error) {
 			channel.error(error instanceof Error ? error : String(error));
+		} finally {
+			this.runningRunners.delete(runner.id);
+			this.editorArea.refreshActions();
 		}
 	}
 

@@ -67,6 +67,7 @@ export class EditorArea extends Disposable {
 		private readonly customEditors: CustomEditorRegistry,
 		private readonly runners: RunnerRegistry,
 		private readonly runFile: (runner: FileRunner, uri: URI) => void,
+		private readonly isRunnerRunning: (runner: FileRunner) => boolean,
 	) {
 		super();
 
@@ -386,7 +387,11 @@ export class EditorArea extends Disposable {
 			button.addEventListener('click', run);
 		};
 		for (const runner of this.runners.getForResource(entry.uri)) {
-			addAction('play', runner.displayName, () => this.runFile(runner, entry.uri));
+			if (this.isRunnerRunning(runner) && runner.stop) {
+				addAction('debug-stop', `Stop ${runner.displayName}`, () => runner.stop!(entry.uri));
+			} else {
+				addAction('play', runner.displayName, () => this.runFile(runner, entry.uri));
+			}
 		}
 		if (entry.kind === 'custom') {
 			addAction('go-to-file', 'Reopen as Text Editor', () => this.openFile(entry.uri, { openWith: 'text' }));
