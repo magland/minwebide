@@ -276,6 +276,10 @@ A runner may also declare `stop(uri)` — while `run()` is pending, the tab's
 doing the work); `run()` should then resolve promptly. While a runner is
 running, re-clicks are ignored; without `stop()` the ▶ button just stays.
 
+`workbench.runFile(uri)` triggers the same flow programmatically (first
+matching runner, channel reveal, ▶/⏹ swap) — for run buttons inside your
+own views, like a custom editor.
+
 ## 9. Rich output: the secondary side bar
 
 For output that isn't text (plots, tables, previews), a run context's

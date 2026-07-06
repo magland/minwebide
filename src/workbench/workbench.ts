@@ -139,7 +139,7 @@ export class Workbench extends Disposable {
 			editorThemeName,
 			this.customEditors,
 			this.runners,
-			(runner, uri) => this.runFile(runner, uri),
+			(runner, uri) => this.runFileWith(runner, uri),
 			(runner) => this.runningRunners.has(runner.id),
 		));
 		this.panel = this._register(new Panel());
@@ -283,6 +283,18 @@ export class Workbench extends Disposable {
 		return disposable;
 	}
 
+	/**
+	 * Programmatically runs a file with its first matching registered runner —
+	 * the same flow as the tab bar's ▶ action (channel reveal, ▶/⏹ swap).
+	 * No-op when no runner matches or that runner is already running.
+	 */
+	async runFile(uri: URI): Promise<void> {
+		const runner = this.runners.getForResource(uri)[0];
+		if (runner) {
+			await this.runFileWith(runner, uri);
+		}
+	}
+
 	/** Creates a view in the secondary side bar (right of the editor). */
 	createAuxiliaryView(id: string, title: string): AuxiliaryView {
 		return this.auxiliaryBar.createView(id, title);
@@ -298,7 +310,7 @@ export class Workbench extends Disposable {
 		}
 	}
 
-	private async runFile(runner: FileRunner, uri: URI): Promise<void> {
+	private async runFileWith(runner: FileRunner, uri: URI): Promise<void> {
 		if (this.runningRunners.has(runner.id)) {
 			return;
 		}
