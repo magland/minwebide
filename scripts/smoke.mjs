@@ -93,7 +93,23 @@ try {
 	console.log(imgOk ? 'IMAGE VIEWER OK' : 'IMAGE VIEWER FAILED');
 	await page.screenshot({ path: process.argv[2] + '/image.png' });
 
-	// drive the terminal
+	// run a JavaScript file: output goes to the Output panel view
+	await page.getByText('scripts', { exact: true }).click();
+	await page.waitForTimeout(500);
+	await page.getByText('fibonacci.js', { exact: true }).click();
+	await page.waitForTimeout(600);
+	await page.locator('.mw-tab-action[title="Run JavaScript"]').click();
+	await page.waitForTimeout(1200);
+	// note: monaco virtualizes rendering (only visible lines appear in
+	// innerText) and renders spaces as nbsp
+	const outputText = (await page.locator('.mw-output').innerText()).replace(/ /g, ' ');
+	const ranOk = outputText.includes('fib(10) = 55') && /\[(info|warning)\]/.test(outputText);
+	console.log(ranOk ? 'RUNNER OK' : `RUNNER FAILED: ${JSON.stringify(outputText.slice(0, 200))}`);
+	await page.screenshot({ path: process.argv[2] + '/runner.png' });
+
+	// drive the terminal (reactivate its panel tab first)
+	await page.locator('.mw-panel-tab', { hasText: 'Terminal' }).click();
+	await page.waitForTimeout(300);
 	await page.locator('.mw-terminal').click();
 	await page.keyboard.type('ls');
 	await page.keyboard.press('Enter');

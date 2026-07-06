@@ -9,6 +9,7 @@ import 'vs/base/browser/ui/codicons/codicon/codicon.css';
 import 'vs/base/browser/ui/codicons/codicon/codicon-modifiers.css';
 import './workbench.css';
 
+import * as monaco from '../editor/monaco';
 import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import { defineEditorTheme } from '../theme/editorTheme';
 import { applyThemeToElement, WorkbenchTheme } from '../theme/themes';
@@ -16,7 +17,9 @@ import { ActivityBar } from './activityBar';
 import { CustomEditorProvider, CustomEditorRegistry } from './customEditors';
 import { EditorArea, OpenFileOptions } from './editorArea';
 import { ExplorerView } from './explorer';
+import { LogOutputChannel, OutputChannel, OutputChannelOptions, OutputView } from './outputChannels';
 import { Panel } from './panel';
+import { FileRunner, RunnerRegistry } from './runners';
 import { SearchView } from './searchView';
 import { StatusBar } from './statusBar';
 import { TerminalView } from './terminal';
@@ -68,6 +71,10 @@ export class Workbench extends Disposable {
 	readonly statusBar: StatusBar;
 	readonly activityBar: ActivityBar;
 	readonly customEditors = new CustomEditorRegistry();
+	readonly runners = new RunnerRegistry();
+	readonly output: OutputView;
+
+	private readonly runnerChannels = new Map<string, LogOutputChannel>();
 
 	private readonly outerSplit: SplitView;
 	private readonly innerSplit: SplitView;
@@ -124,11 +131,18 @@ export class Workbench extends Disposable {
 
 		// construct all parts before wiring them into splitviews: addView
 		// fires layout callbacks synchronously
-		this.editorArea = this._register(new EditorArea(options.fileSystem, editorThemeName, this.customEditors));
-		this.panel = this._register(new Panel(() => this.terminal.layout()));
+		this.editorArea = this._register(new EditorArea(
+			options.fileSystem,
+			editorThemeName,
+			this.customEditors,
+			this.runners,
+			(runner, uri) => this.runFile(runner, uri),
+		));
+		this.panel = this._register(new Panel());
 		this.explorer = this._register(new ExplorerView(options.fileSystem));
 		this.search = this._register(new SearchView(options.fileSystem));
 		this.terminal = this._register(new TerminalView(options.fileSystem, options.theme));
+		this.output = this._register(new OutputView(editorThemeName, () => this.panel.setActive('output')));
 
 		this.outerSplit = this._register(new SplitView(splitsEl, { orientation: Orientation.HORIZONTAL, proportionalLayout: false }));
 		this.outerSplit.addView(new ElementView(sidebarEl, 170, LayoutPriority.Low, (size) => {
@@ -138,7 +152,7 @@ export class Workbench extends Disposable {
 		this.outerSplit.addView(new ElementView(columnEl, 300, LayoutPriority.High, (size) => {
 			this.columnWidth = size;
 			this.editorArea.layout(size, this.editorHeight);
-			this.terminal.layout();
+			this.panel.layout(size, this.panelHeight);
 		}), Sizing.Distribute);
 
 		this.innerSplit = this._register(new SplitView(columnEl, { orientation: Orientation.VERTICAL, proportionalLayout: false }));
@@ -148,7 +162,7 @@ export class Workbench extends Disposable {
 		}), Sizing.Distribute);
 		this.innerSplit.addView(new ElementView(this.panel.element, 60, LayoutPriority.Low, (size) => {
 			this.panelHeight = size;
-			this.terminal.layout();
+			this.panel.layout(this.columnWidth, size);
 		}), 200);
 
 		// sidebar views
@@ -168,8 +182,20 @@ export class Workbench extends Disposable {
 			},
 		})));
 
-		// terminal in the panel
-		this.panel.addTab({ id: 'terminal', title: 'Terminal', element: this.terminal.element });
+		// panel tabs
+		this.panel.addTab({
+			id: 'terminal',
+			title: 'Terminal',
+			element: this.terminal.element,
+			onLayout: () => this.terminal.layout(),
+		});
+		this.panel.addTab({
+			id: 'output',
+			title: 'Output',
+			element: this.output.element,
+			actions: this.output.actionsElement,
+			onLayout: (width, height) => this.output.layout(width, height),
+		});
 
 		// status bar
 		this.statusBar = this._register(new StatusBar());
@@ -238,7 +264,50 @@ export class Workbench extends Disposable {
 	}
 
 	registerCustomEditor(provider: CustomEditorProvider) {
-		return this.customEditors.register(provider);
+		const disposable = this.customEditors.register(provider);
+		this.editorArea.refreshActions();
+		return disposable;
+	}
+
+	/** Mirrors VS Code's `window.createOutputChannel(name, { log })`. */
+	createOutputChannel(name: string, options?: OutputChannelOptions & { log?: false }): OutputChannel;
+	createOutputChannel(name: string, options: OutputChannelOptions & { log: true }): LogOutputChannel;
+	createOutputChannel(name: string, options?: OutputChannelOptions): OutputChannel | LogOutputChannel {
+		return options?.log
+			? this.output.createChannel(name, { log: true })
+			: this.output.createChannel(name);
+	}
+
+	registerRunner(runner: FileRunner) {
+		const disposable = this.runners.register(runner);
+		this.editorArea.refreshActions();
+		return disposable;
+	}
+
+	private async runFile(runner: FileRunner, uri: URI): Promise<void> {
+		let channel = this.runnerChannels.get(runner.id);
+		if (!channel) {
+			channel = this.output.createChannel(runner.displayName, { log: true });
+			this.runnerChannels.set(runner.id, channel);
+		}
+		channel.show();
+		try {
+			await runner.run({
+				uri,
+				// prefer the open editor's (possibly unsaved) contents
+				getText: async () => {
+					const model = monaco.editor.getModel(uri);
+					if (model) {
+						return model.getValue();
+					}
+					return (await this.options.fileSystem.fileService.readFile(uri)).value.toString();
+				},
+				readBytes: async () => (await this.options.fileSystem.fileService.readFile(uri)).value.buffer,
+				output: channel,
+			});
+		} catch (error) {
+			channel.error(error instanceof Error ? error : String(error));
+		}
 	}
 
 	private layoutSidebar(): void {

@@ -49,6 +49,19 @@ s-006,12.2,338,21.6,ok
 	}
 }
 `,
+	'/scripts/fibonacci.js': `// Press the ▶ button in the tab bar to run this file.
+// Output appears in the Output view of the bottom panel.
+
+function fib(n) {
+	return n < 2 ? n : fib(n - 1) + fib(n - 2);
+}
+
+for (let i = 1; i <= 10; i++) {
+	console.log(\`fib(\${i}) = \${fib(i)}\`);
+}
+
+console.warn('warnings and errors are colorized by the log grammar');
+`,
 	'/docs/notes.md': `# Notes
 
 Everything you see is either VS Code's own code (editor, file tree,

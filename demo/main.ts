@@ -2,6 +2,7 @@ import onigWasmUrl from 'vscode-oniguruma/release/onig.wasm?url';
 import { createIndexedDBFileSystem, createWorkbench, loadColorTheme, registerTextMateSupport } from '../src';
 import { demoCustomEditors } from './customEditors';
 import { readExtensionFile, vendorExtensions } from './languages';
+import { demoRunners } from './runners';
 import { sampleWorkspace } from './sampleWorkspace';
 
 /** A sample PNG, generated on the fly, to exercise the binary file path. */
@@ -55,12 +56,15 @@ async function main(): Promise<void> {
 		theme,
 	});
 
-	createWorkbench(document.getElementById('app')!, {
+	const workbench = createWorkbench(document.getElementById('app')!, {
 		fileSystem: fs,
 		theme,
 		workspaceName: 'demo workspace',
 		customEditors: demoCustomEditors,
 	});
+	for (const runner of demoRunners) {
+		workbench.registerRunner(runner);
+	}
 }
 
 main();

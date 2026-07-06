@@ -317,7 +317,60 @@
 	display: flex;
 	align-items: center;
 	padding: 0 8px;
+}
+
+.mw-panel-tabs {
+	display: flex;
+	align-items: center;
 	gap: 4px;
+	height: 100%;
+	flex: 1;
+	min-width: 0;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.mw-panel-actions {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.mw-panel-tab-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.mw-panel-action {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 5px;
+	cursor: pointer;
+	color: var(--vscode-icon-foreground);
+}
+
+.mw-panel-action:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.mw-output-select {
+	background-color: var(--vscode-dropdown-background);
+	color: var(--vscode-dropdown-foreground);
+	border: 1px solid var(--vscode-dropdown-border, transparent);
+	border-radius: 2px;
+	font-size: 12px;
+	font-family: inherit;
+	padding: 1px 4px;
+	outline: none;
+}
+
+.mw-output {
+	position: absolute;
+	inset: 0;
 }
 
 .mw-panel-tab {

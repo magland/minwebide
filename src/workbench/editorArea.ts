@@ -7,6 +7,7 @@ import { URI } from 'vs/base/common/uri';
 import * as monaco from '../editor/monaco';
 import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import { CustomEditorDocument, CustomEditorPane, CustomEditorRegistry } from './customEditors';
+import { FileRunner, RunnerRegistry } from './runners';
 
 /** A text model shared by every editor (text or custom) opened for a file. */
 interface ModelRecord {
@@ -64,6 +65,8 @@ export class EditorArea extends Disposable {
 		private readonly fs: WorkspaceFileSystem,
 		theme: string,
 		private readonly customEditors: CustomEditorRegistry,
+		private readonly runners: RunnerRegistry,
+		private readonly runFile: (runner: FileRunner, uri: URI) => void,
 	) {
 		super();
 
@@ -382,6 +385,9 @@ export class EditorArea extends Disposable {
 			append(button, $(`span.codicon.codicon-${icon}`));
 			button.addEventListener('click', run);
 		};
+		for (const runner of this.runners.getForResource(entry.uri)) {
+			addAction('play', runner.displayName, () => this.runFile(runner, entry.uri));
+		}
 		if (entry.kind === 'custom') {
 			addAction('go-to-file', 'Reopen as Text Editor', () => this.openFile(entry.uri, { openWith: 'text' }));
 		}
@@ -390,6 +396,11 @@ export class EditorArea extends Disposable {
 				addAction('open-preview', `Open with ${provider.displayName}`, () => this.openFile(entry.uri, { openWith: provider.viewType }));
 			}
 		}
+	}
+
+	/** Re-render tab actions (e.g. after a runner or custom editor was registered). */
+	refreshActions(): void {
+		this.renderTabActions();
 	}
 
 	override dispose(): void {

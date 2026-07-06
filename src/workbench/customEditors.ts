@@ -96,7 +96,7 @@ export class CustomEditorRegistry {
 	}
 }
 
-function matchesSelector(selector: CustomEditorSelector, resource: URI): boolean {
+export function matchesSelector(selector: CustomEditorSelector, resource: URI): boolean {
 	const pattern = selector.filenamePattern;
 	return matchGlob(pattern, pattern.includes('/') ? resource.path : basename(resource));
 }

@@ -104,6 +104,40 @@ actions, like VS Code's editor title area). The demo registers three:
 a markdown preview (rendered by VS Code's own `vs/base` markdownRenderer),
 a CSV table viewer, and a binary image viewer.
 
+### Output channels and file runners
+
+The panel has an Output view built the way VS Code builds its own: a read-only
+code editor over append-only channels, colorized by the built-in `log`
+TextMate grammar, with a channel-switcher dropdown and clear action in the
+panel title area. The API mirrors `vscode.window.createOutputChannel`:
+
+```ts
+const channel = workbench.createOutputChannel('My Tool', { log: true });
+channel.info('starting');          // 2026-07-06 15:29:26.263 [info] starting
+channel.appendLine('raw output');  // no prefix
+channel.show();                    // reveal the Output view on this channel
+```
+
+"Run this file" is app-defined (in the browser that might mean eval'd JS, a
+worker, Pyodide, ...), so — like VS Code, where run buttons come from
+extensions contributing to the `editor/title/run` menu — apps register
+runners, and a ▶ action appears in the tab bar for matching files:
+
+```ts
+workbench.registerRunner({
+  id: 'myapp.runScript',
+  displayName: 'Run Script',
+  selector: [{ filenamePattern: '*.{js,mjs}' }],
+  async run({ uri, getText, output }) {   // output: this runner's LogOutputChannel, already revealed
+    output.info(`Running ${uri.path}`);
+    ...
+  },
+});
+```
+
+`getText()` returns the open editor's (possibly unsaved) contents; the demo
+registers a JavaScript runner with a captured console and a word-count runner.
+
 Because the library imports `vs/*` modules from source, consuming apps need
 the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
 
