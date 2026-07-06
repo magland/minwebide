@@ -1,0 +1,96 @@
+/* Styles for the demo custom editors — themed exclusively with the same
+ * --vscode-* variables the rest of the workbench uses. */
+
+.demo-markdown-preview {
+	padding: 20px 32px;
+	max-width: 800px;
+	line-height: 1.6;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.demo-markdown-preview h1,
+.demo-markdown-preview h2 {
+	border-bottom: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	padding-bottom: 0.3em;
+	font-weight: 600;
+}
+
+.demo-markdown-preview a {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+}
+
+.demo-markdown-preview a:hover {
+	text-decoration: underline;
+}
+
+.demo-markdown-preview code {
+	background-color: var(--vscode-textCodeBlock-background);
+	border-radius: 4px;
+	padding: 1px 4px;
+	font-family: ui-monospace, Menlo, Monaco, monospace;
+	font-size: 0.9em;
+}
+
+.demo-markdown-preview pre code {
+	display: block;
+	padding: 12px;
+	overflow-x: auto;
+}
+
+.demo-markdown-preview blockquote {
+	margin: 0;
+	padding-left: 12px;
+	border-left: 4px solid var(--vscode-textBlockQuote-border);
+	background-color: var(--vscode-textBlockQuote-background);
+	color: var(--vscode-descriptionForeground);
+}
+
+.demo-csv-viewer {
+	padding: 12px;
+}
+
+.demo-csv-viewer table {
+	border-collapse: collapse;
+	font-size: 13px;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.demo-csv-viewer th,
+.demo-csv-viewer td {
+	padding: 4px 12px;
+	text-align: left;
+	border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+}
+
+.demo-csv-viewer th {
+	background-color: var(--vscode-keybindingTable-headerBackground, var(--vscode-editorWidget-background));
+	font-weight: 600;
+}
+
+.demo-csv-viewer tr:nth-child(even) td {
+	background-color: var(--vscode-keybindingTable-rowsBackground, transparent);
+}
+
+.demo-image-viewer {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+}
+
+.demo-image-viewer img {
+	max-width: calc(100% - 40px);
+	max-height: calc(100% - 60px);
+	object-fit: contain;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.demo-image-caption {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}

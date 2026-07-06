@@ -32,6 +32,14 @@ body {
 	color: var(--accent);
 }
 `,
+	'/data/measurements.csv': `sample,voltage_mV,current_uA,temperature_C,status
+s-001,12.4,340,21.5,ok
+s-002,11.9,332,21.7,ok
+s-003,12.1,,21.4,"missing current"
+s-004,13.0,355,22.1,ok
+s-005,12.6,349,21.9,recalibrated
+s-006,12.2,338,21.6,ok
+`,
 	'/data/config.json': `{
 	"name": "minwebide-demo",
 	"version": "0.1.0",

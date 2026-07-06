@@ -4,7 +4,20 @@ import type { ExtensionManifest, VendorExtension } from '../src/textmate/textmat
 // ship inside the pinned VS Code checkout: the same grammars, language
 // configurations, and file associations VS Code itself uses.
 
-const manifests = import.meta.glob('/vendor/vscode/extensions/*/package.json', {
+// The negative patterns exclude extensions with large manifests that
+// contribute no languages or grammars (language contributions live in the
+// '*-basics' style extensions). import.meta.glob only accepts literal arrays,
+// so the list is repeated in both globs.
+const manifests = import.meta.glob([
+	'/vendor/vscode/extensions/*/package.json',
+	'!**/copilot/**',
+	'!**/git/**',
+	'!**/*-language-features/**',
+	'!**/emmet/**',
+	'!**/references-view/**',
+	'!**/notebook-renderers/**',
+	'!**/*-authentication/**',
+], {
 	eager: true,
 	import: 'default',
 }) as Record<string, ExtensionManifest>;
@@ -12,6 +25,13 @@ const manifests = import.meta.glob('/vendor/vscode/extensions/*/package.json', {
 const extensionFiles = import.meta.glob([
 	'/vendor/vscode/extensions/*/syntaxes/**',
 	'/vendor/vscode/extensions/*/*.json',
+	'!**/copilot/**',
+	'!**/git/**',
+	'!**/*-language-features/**',
+	'!**/emmet/**',
+	'!**/references-view/**',
+	'!**/notebook-renderers/**',
+	'!**/*-authentication/**',
 ], { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
 
 export function vendorExtensions(): VendorExtension[] {

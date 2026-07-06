@@ -74,6 +74,36 @@ code can read/write/watch workspace files with the same API VS Code uses
 internally. `workbench.editorArea.editor` is a real
 `monaco.editor.IStandaloneCodeEditor`.
 
+### Custom editors
+
+Apps can replace (or complement) the text editor for chosen file types. The
+registration shape mirrors VS Code's `contributes.customEditors` extension
+point and the provider mirrors `CustomTextEditorProvider` — but there is no
+extension host or webview: the pane is plain DOM, because the embedding app is
+trusted code running in the same page.
+
+```ts
+workbench.registerCustomEditor({
+  viewType: 'myapp.csvViewer',
+  displayName: 'CSV Table',
+  selector: [{ filenamePattern: '*.csv' }],
+  priority: 'default',            // replaces the text editor ('option' = offered alongside)
+  async resolveCustomEditor(document) {
+    const model = await document.getTextModel(); // shared with the text editor
+    // const bytes = await document.readBytes(); // or raw contents for binary files
+    const element = renderMyEditor(model);
+    return { element };            // + optional layout/focus/dispose/save/onDidChangeDirty
+  },
+});
+```
+
+Text-based panes share the file's text model with the built-in editor, so
+edits, dirty state, and Ctrl+S stay consistent when a file is reopened the
+other way (the tab bar offers "Reopen as Text Editor" / "Open with ..."
+actions, like VS Code's editor title area). The demo registers three:
+a markdown preview (rendered by VS Code's own `vs/base` markdownRenderer),
+a CSV table viewer, and a binary image viewer.
+
 Because the library imports `vs/*` modules from source, consuming apps need
 the same two build conventions (see `vite.config.ts` and `tsconfig.json`):
 

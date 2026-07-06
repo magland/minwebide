@@ -13,7 +13,8 @@ import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import { defineEditorTheme } from '../theme/editorTheme';
 import { applyThemeToElement, WorkbenchTheme } from '../theme/themes';
 import { ActivityBar } from './activityBar';
-import { EditorArea } from './editorArea';
+import { CustomEditorProvider, CustomEditorRegistry } from './customEditors';
+import { EditorArea, OpenFileOptions } from './editorArea';
 import { ExplorerView } from './explorer';
 import { Panel } from './panel';
 import { SearchView } from './searchView';
@@ -24,6 +25,8 @@ export interface WorkbenchOptions {
 	readonly fileSystem: WorkspaceFileSystem;
 	readonly theme: WorkbenchTheme;
 	readonly workspaceName?: string;
+	/** Custom editors to register up front (more can be added via registerCustomEditor). */
+	readonly customEditors?: readonly CustomEditorProvider[];
 }
 
 let iconsInjected = false;
@@ -64,6 +67,7 @@ export class Workbench extends Disposable {
 	readonly terminal: TerminalView;
 	readonly statusBar: StatusBar;
 	readonly activityBar: ActivityBar;
+	readonly customEditors = new CustomEditorRegistry();
 
 	private readonly outerSplit: SplitView;
 	private readonly innerSplit: SplitView;
@@ -114,9 +118,13 @@ export class Workbench extends Disposable {
 		columnEl.style.height = '100%';
 		columnEl.style.position = 'relative';
 
+		for (const provider of options.customEditors ?? []) {
+			this.customEditors.register(provider);
+		}
+
 		// construct all parts before wiring them into splitviews: addView
 		// fires layout callbacks synchronously
-		this.editorArea = this._register(new EditorArea(options.fileSystem, editorThemeName));
+		this.editorArea = this._register(new EditorArea(options.fileSystem, editorThemeName, this.customEditors));
 		this.panel = this._register(new Panel(() => this.terminal.layout()));
 		this.explorer = this._register(new ExplorerView(options.fileSystem));
 		this.search = this._register(new SearchView(options.fileSystem));
@@ -225,8 +233,12 @@ export class Workbench extends Disposable {
 		pane.onShow?.();
 	}
 
-	async openFile(uri: URI, options?: { revealRange?: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number } }): Promise<void> {
+	async openFile(uri: URI, options?: OpenFileOptions): Promise<void> {
 		await this.editorArea.openFile(uri, options);
+	}
+
+	registerCustomEditor(provider: CustomEditorProvider) {
+		return this.customEditors.register(provider);
 	}
 
 	private layoutSidebar(): void {

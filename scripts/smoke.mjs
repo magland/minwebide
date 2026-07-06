@@ -58,6 +58,41 @@ try {
 		await page.screenshot({ path: process.argv[2] + '/search-opened.png' });
 	}
 
+	// custom editors: CSV opens as a table by default
+	await page.locator('.mw-activitybar-item[title="Explorer"]').click();
+	await page.waitForTimeout(300);
+	await page.getByText('data', { exact: true }).click();
+	await page.waitForTimeout(500);
+	await page.getByText('measurements.csv', { exact: true }).click();
+	await page.waitForTimeout(800);
+	const csvCells = await page.locator('.demo-csv-viewer td').count();
+	console.log(csvCells > 10 ? `CSV VIEWER OK (${csvCells} cells)` : 'CSV VIEWER FAILED');
+	await page.screenshot({ path: process.argv[2] + '/csv.png' });
+
+	// ... with "reopen as text" available
+	await page.locator('.mw-tab-action[title="Reopen as Text Editor"]').click();
+	await page.waitForTimeout(600);
+	const csvAsText = await page.getByText('voltage_mV', { exact: false }).count();
+	console.log(csvAsText > 0 ? 'REOPEN AS TEXT OK' : 'REOPEN AS TEXT FAILED');
+
+	// markdown preview via the tab-bar action (activate the existing tab)
+	await page.locator('.mw-tab-label', { hasText: 'README.md' }).click();
+	await page.waitForTimeout(400);
+	await page.locator('.mw-tab-action[title="Open with Markdown Preview"]').click();
+	await page.waitForTimeout(800);
+	const mdHeadings = await page.locator('.demo-markdown-preview h1').count();
+	console.log(mdHeadings > 0 ? 'MARKDOWN PREVIEW OK' : 'MARKDOWN PREVIEW FAILED');
+	await page.screenshot({ path: process.argv[2] + '/markdown.png' });
+
+	// image viewer (binary path)
+	await page.getByText('assets', { exact: true }).click();
+	await page.waitForTimeout(500);
+	await page.getByText('banner.png', { exact: true }).click();
+	await page.waitForTimeout(800);
+	const imgOk = await page.locator('.demo-image-viewer img').evaluate((img) => img.complete && img.naturalWidth === 320).catch(() => false);
+	console.log(imgOk ? 'IMAGE VIEWER OK' : 'IMAGE VIEWER FAILED');
+	await page.screenshot({ path: process.argv[2] + '/image.png' });
+
 	// drive the terminal
 	await page.locator('.mw-terminal').click();
 	await page.keyboard.type('ls');

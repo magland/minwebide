@@ -20,7 +20,7 @@ export interface WorkspaceFileSystem {
 	/** Root folder of the workspace. */
 	readonly root: URI;
 	/** Write the given path → contents map, skipping files that already exist. */
-	seed(files: Record<string, string>): Promise<void>;
+	seed(files: Record<string, string | Uint8Array>): Promise<void>;
 	dispose(): void;
 }
 
@@ -45,14 +45,15 @@ export async function createIndexedDBFileSystem(options: IndexedDBFileSystemOpti
 		fileService,
 		scheme,
 		root,
-		async seed(files: Record<string, string>): Promise<void> {
+		async seed(files: Record<string, string | Uint8Array>): Promise<void> {
 			for (const [path, contents] of Object.entries(files)) {
 				const resource = root.with({ path: path.startsWith('/') ? path : `/${path}` });
 				if (await fileService.exists(resource)) {
 					continue;
 				}
 				await fileService.createFolder(dirname(resource));
-				await fileService.writeFile(resource, VSBuffer.fromString(contents));
+				const buffer = typeof contents === 'string' ? VSBuffer.fromString(contents) : VSBuffer.wrap(contents);
+				await fileService.writeFile(resource, buffer);
 			}
 		},
 		dispose(): void {

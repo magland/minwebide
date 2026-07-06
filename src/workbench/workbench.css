@@ -191,8 +191,37 @@
 	display: flex;
 	background-color: var(--vscode-editorGroupHeader-tabsBackground);
 	border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder, transparent);
+}
+
+.mw-tabs-list {
+	flex: 1;
+	min-width: 0;
+	display: flex;
 	overflow-x: auto;
 	scrollbar-width: none;
+}
+
+.mw-tabs-actions {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 0 6px;
+}
+
+.mw-tab-action {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 5px;
+	cursor: pointer;
+	color: var(--vscode-icon-foreground);
+}
+
+.mw-tab-action:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 .mw-tab {
@@ -243,6 +272,17 @@
 	flex: 1;
 	min-height: 0;
 	position: relative;
+}
+
+.mw-editor-host {
+	position: absolute;
+	inset: 0;
+}
+
+.mw-custom-editor {
+	position: absolute;
+	inset: 0;
+	overflow: auto;
 }
 
 .mw-watermark {

@@ -1,34 +1,58 @@
 import { $, append, clearNode } from 'vs/base/browser/dom';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable, DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { basename } from 'vs/base/common/resources';
 import { URI } from 'vs/base/common/uri';
 import * as monaco from '../editor/monaco';
 import type { WorkspaceFileSystem } from '../fs/fileSystem';
+import { CustomEditorDocument, CustomEditorPane, CustomEditorRegistry } from './customEditors';
 
-interface OpenFileEntry {
-	readonly uri: URI;
+/** A text model shared by every editor (text or custom) opened for a file. */
+interface ModelRecord {
 	readonly model: monaco.editor.ITextModel;
 	readonly listeners: DisposableStore;
 	savedVersionId: number;
 	dirty: boolean;
+}
+
+interface OpenEntry {
+	readonly uri: URI;
+	readonly key: string;
+	readonly kind: 'text' | 'custom';
+	readonly viewType?: string;
+	readonly pane?: CustomEditorPane;
+	readonly paneListeners?: DisposableStore;
+	paneDirty: boolean;
+	/** Whether this entry works against the shared text model. */
+	usesModel: boolean;
 	viewState: monaco.editor.ICodeEditorViewState | null;
 }
 
+export interface OpenFileOptions {
+	readonly revealRange?: monaco.IRange;
+	/** Open with a specific custom editor viewType, or 'text' to force the text editor. */
+	readonly openWith?: string;
+}
+
 /**
- * The editor area: a tab bar plus a single Monaco editor that swaps models,
- * reading and saving file contents through VS Code's FileService.
+ * The editor area: a tab bar plus an editor host that shows either the shared
+ * Monaco editor (swapping models) or an app-registered custom editor pane.
+ * File contents flow through VS Code's FileService.
  */
 export class EditorArea extends Disposable {
 	readonly element: HTMLElement;
 	readonly editor: monaco.editor.IStandaloneCodeEditor;
 
 	private readonly tabsEl: HTMLElement;
+	private readonly tabsListEl: HTMLElement;
+	private readonly tabsActionsEl: HTMLElement;
 	private readonly editorContainerEl: HTMLElement;
+	private readonly editorHostEl: HTMLElement;
 	private readonly watermarkEl: HTMLElement;
 
-	private readonly openFiles = new Map<string, OpenFileEntry>();
+	private readonly models = new Map<string, ModelRecord>();
+	private readonly entries = new Map<string, OpenEntry>();
 	private activeKey: string | undefined;
 	private width = 0;
 	private height = 0;
@@ -36,21 +60,25 @@ export class EditorArea extends Disposable {
 	private readonly _onDidChangeActiveFile = this._register(new Emitter<URI | undefined>());
 	readonly onDidChangeActiveFile: Event<URI | undefined> = this._onDidChangeActiveFile.event;
 
-	constructor(private readonly fs: WorkspaceFileSystem, theme: string) {
+	constructor(
+		private readonly fs: WorkspaceFileSystem,
+		theme: string,
+		private readonly customEditors: CustomEditorRegistry,
+	) {
 		super();
 
 		this.element = $('.mw-editor-area');
 		this.tabsEl = append(this.element, $('.mw-tabs'));
+		this.tabsListEl = append(this.tabsEl, $('.mw-tabs-list'));
+		this.tabsActionsEl = append(this.tabsEl, $('.mw-tabs-actions'));
 		this.editorContainerEl = append(this.element, $('.mw-editor-container'));
 		this.watermarkEl = append(this.editorContainerEl, $('.mw-watermark'));
 		append(this.watermarkEl, $('span.codicon.codicon-files'));
 		append(this.watermarkEl, $('span', undefined, 'Open a file from the Explorer to get started'));
 
-		const editorHost = append(this.editorContainerEl, $('div'));
-		editorHost.style.position = 'absolute';
-		editorHost.style.inset = '0';
+		this.editorHostEl = append(this.editorContainerEl, $('.mw-editor-host'));
 
-		this.editor = this._register(monaco.editor.create(editorHost, {
+		this.editor = this._register(monaco.editor.create(this.editorHostEl, {
 			model: null,
 			theme,
 			automaticLayout: false,
@@ -69,60 +97,64 @@ export class EditorArea extends Disposable {
 	}
 
 	get activeUri(): URI | undefined {
-		return this.activeKey ? this.openFiles.get(this.activeKey)?.uri : undefined;
+		return this.activeKey ? this.entries.get(this.activeKey)?.uri : undefined;
 	}
 
-	async openFile(uri: URI, options?: { revealRange?: monaco.IRange }): Promise<void> {
+	async openFile(uri: URI, options?: OpenFileOptions): Promise<void> {
 		const key = uri.toString();
-		let entry = this.openFiles.get(key);
-		if (!entry) {
-			const content = await this.fs.fileService.readFile(uri);
-			const text = content.value.toString();
-			const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(text, undefined, uri);
-			const listeners = new DisposableStore();
-			entry = {
-				uri,
-				model,
-				listeners,
-				savedVersionId: model.getAlternativeVersionId(),
-				dirty: false,
-				viewState: null,
-			};
-			listeners.add(model.onDidChangeContent(() => {
-				const dirty = entry!.model.getAlternativeVersionId() !== entry!.savedVersionId;
-				if (dirty !== entry!.dirty) {
-					entry!.dirty = dirty;
-					this.renderTabs();
-				}
-			}));
-			this.openFiles.set(key, entry);
+		const requested = options?.openWith;
+		const existing = this.entries.get(key);
+
+		let targetViewType: string | undefined; // undefined → text editor
+		if (requested) {
+			targetViewType = requested === 'text' ? undefined : requested;
+		} else if (existing) {
+			targetViewType = existing.viewType;
+		} else {
+			targetViewType = this.customEditors.getDefaultForResource(uri)?.viewType;
 		}
+
+		let entry = existing;
+		if (!entry || entry.viewType !== targetViewType) {
+			if (entry) {
+				this.disposeEntry(entry, { releaseModel: false });
+				this.entries.delete(key);
+				if (this.activeKey === key) {
+					this.activeKey = undefined;
+				}
+			}
+			entry = targetViewType
+				? await this.createCustomEntry(uri, key, targetViewType)
+				: await this.createTextEntry(uri, key);
+			this.entries.set(key, entry);
+		}
+
 		this.setActive(key);
-		if (options?.revealRange) {
+		if (options?.revealRange && entry.kind === 'text') {
 			this.editor.revealRangeInCenter(options.revealRange);
 			this.editor.setSelection(options.revealRange);
 		}
-		this.editor.focus();
+		this.focusActive();
 	}
 
 	closeFile(uri: URI): void {
 		const key = uri.toString();
-		const entry = this.openFiles.get(key);
+		const entry = this.entries.get(key);
 		if (!entry) {
 			return;
 		}
-		if (entry.dirty && !confirm(`Discard unsaved changes to ${basename(uri)}?`)) {
+		if (this.isDirty(entry) && !confirm(`Discard unsaved changes to ${basename(uri)}?`)) {
 			return;
 		}
 		if (this.activeKey === key) {
 			this.editor.setModel(null);
 			this.activeKey = undefined;
 		}
-		entry.listeners.dispose();
-		entry.model.dispose();
-		this.openFiles.delete(key);
+		this.disposeEntry(entry, { releaseModel: true });
+		this.entries.delete(key);
+
 		if (!this.activeKey) {
-			const next = [...this.openFiles.keys()].pop();
+			const next = [...this.entries.keys()].pop();
 			if (next) {
 				this.setActive(next);
 			} else {
@@ -136,16 +168,21 @@ export class EditorArea extends Disposable {
 	}
 
 	async saveActive(): Promise<void> {
-		if (!this.activeKey) {
-			return;
-		}
-		const entry = this.openFiles.get(this.activeKey);
+		const entry = this.activeKey ? this.entries.get(this.activeKey) : undefined;
 		if (!entry) {
 			return;
 		}
-		await this.fs.fileService.writeFile(entry.uri, VSBuffer.fromString(entry.model.getValue()));
-		entry.savedVersionId = entry.model.getAlternativeVersionId();
-		entry.dirty = false;
+		if (entry.pane?.save) {
+			await entry.pane.save();
+			entry.paneDirty = false;
+		} else if (entry.usesModel) {
+			const record = this.models.get(entry.key);
+			if (record) {
+				await this.fs.fileService.writeFile(entry.uri, VSBuffer.fromString(record.model.getValue()));
+				record.savedVersionId = record.model.getAlternativeVersionId();
+				record.dirty = false;
+			}
+		}
 		this.renderTabs();
 	}
 
@@ -153,69 +190,213 @@ export class EditorArea extends Disposable {
 		this.width = width;
 		this.height = height;
 		const tabsHeight = this.tabsEl.offsetHeight;
-		this.editor.layout({ width, height: Math.max(0, height - tabsHeight) });
+		const contentHeight = Math.max(0, height - tabsHeight);
+		const entry = this.activeKey ? this.entries.get(this.activeKey) : undefined;
+		if (entry?.kind === 'custom') {
+			entry.pane?.layout?.(width, contentHeight);
+		} else {
+			this.editor.layout({ width, height: contentHeight });
+		}
+	}
+
+	// ---- entry construction ----
+
+	private async acquireModel(uri: URI, key: string): Promise<ModelRecord> {
+		let record = this.models.get(key);
+		if (record) {
+			return record;
+		}
+		const content = await this.fs.fileService.readFile(uri);
+		const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(content.value.toString(), undefined, uri);
+		const listeners = new DisposableStore();
+		const created: ModelRecord = { model, listeners, savedVersionId: model.getAlternativeVersionId(), dirty: false };
+		listeners.add(model.onDidChangeContent(() => {
+			const dirty = model.getAlternativeVersionId() !== created.savedVersionId;
+			if (dirty !== created.dirty) {
+				created.dirty = dirty;
+				this.renderTabs();
+			}
+		}));
+		this.models.set(key, created);
+		return created;
+	}
+
+	private async createTextEntry(uri: URI, key: string): Promise<OpenEntry> {
+		await this.acquireModel(uri, key);
+		return { uri, key, kind: 'text', paneDirty: false, usesModel: true, viewState: null };
+	}
+
+	private async createCustomEntry(uri: URI, key: string, viewType: string): Promise<OpenEntry> {
+		const provider = this.customEditors.get(viewType);
+		if (!provider) {
+			throw new Error(`Unknown custom editor: ${viewType}`);
+		}
+		const entry: OpenEntry & { usesModel: boolean } = {
+			uri,
+			key,
+			kind: 'custom',
+			viewType,
+			pane: undefined as unknown as CustomEditorPane,
+			paneListeners: new DisposableStore(),
+			paneDirty: false,
+			usesModel: false,
+			viewState: null,
+		};
+		const document: CustomEditorDocument = {
+			uri,
+			getTextModel: async () => {
+				const record = await this.acquireModel(uri, key);
+				entry.usesModel = true;
+				return record.model;
+			},
+			readBytes: async () => {
+				const content = await this.fs.fileService.readFile(uri);
+				return content.value.buffer;
+			},
+		};
+		const pane = await provider.resolveCustomEditor(document);
+		(entry as { pane: CustomEditorPane }).pane = pane;
+		if (pane.onDidChangeDirty) {
+			entry.paneListeners!.add(pane.onDidChangeDirty((dirty) => {
+				entry.paneDirty = dirty;
+				this.renderTabs();
+			}));
+		}
+		pane.element.classList.add('mw-custom-editor');
+		this.editorContainerEl.appendChild(pane.element);
+		return entry;
+	}
+
+	private disposeEntry(entry: OpenEntry, options: { releaseModel: boolean }): void {
+		entry.paneListeners?.dispose();
+		entry.pane?.dispose?.();
+		entry.pane?.element.remove();
+		if (options.releaseModel) {
+			const record = this.models.get(entry.key);
+			if (record) {
+				record.listeners.dispose();
+				record.model.dispose();
+				this.models.delete(entry.key);
+			}
+		}
+	}
+
+	// ---- activation & rendering ----
+
+	private isDirty(entry: OpenEntry): boolean {
+		if (entry.paneDirty) {
+			return true;
+		}
+		return entry.usesModel ? (this.models.get(entry.key)?.dirty ?? false) : false;
 	}
 
 	private setActive(key: string): void {
-		if (this.activeKey === key) {
-			return;
-		}
-		// stash view state of the outgoing file
-		if (this.activeKey) {
-			const prev = this.openFiles.get(this.activeKey);
-			if (prev) {
-				prev.viewState = this.editor.saveViewState();
-			}
-		}
-		const entry = this.openFiles.get(key);
+		const entry = this.entries.get(key);
 		if (!entry) {
 			return;
 		}
-		this.activeKey = key;
-		this.editor.setModel(entry.model);
-		if (entry.viewState) {
-			this.editor.restoreViewState(entry.viewState);
+		if (this.activeKey && this.activeKey !== key) {
+			const prev = this.entries.get(this.activeKey);
+			if (prev?.kind === 'text') {
+				prev.viewState = this.editor.saveViewState();
+			}
 		}
+		this.activeKey = key;
+
+		// show the right surface
+		for (const other of this.entries.values()) {
+			if (other.pane) {
+				other.pane.element.style.display = other === entry ? '' : 'none';
+			}
+		}
+		if (entry.kind === 'text') {
+			this.editorHostEl.style.display = '';
+			const record = this.models.get(key);
+			this.editor.setModel(record?.model ?? null);
+			if (entry.viewState) {
+				this.editor.restoreViewState(entry.viewState);
+			}
+		} else {
+			this.editorHostEl.style.display = 'none';
+			this.editor.setModel(null);
+		}
+
 		this.updateEditorVisibility();
 		this.renderTabs();
+		this.layout(this.width, this.height);
 		this._onDidChangeActiveFile.fire(entry.uri);
 	}
 
+	private focusActive(): void {
+		const entry = this.activeKey ? this.entries.get(this.activeKey) : undefined;
+		if (entry?.kind === 'custom') {
+			entry.pane?.focus?.();
+		} else {
+			this.editor.focus();
+		}
+	}
+
 	private updateEditorVisibility(): void {
-		const hasFile = this.openFiles.size > 0 && !!this.activeKey;
-		this.watermarkEl.style.display = hasFile ? 'none' : '';
-		if (this.width && this.height) {
-			this.layout(this.width, this.height);
+		const entry = this.activeKey ? this.entries.get(this.activeKey) : undefined;
+		this.watermarkEl.style.display = entry ? 'none' : '';
+		if (!entry) {
+			this.editorHostEl.style.display = 'none';
 		}
 	}
 
 	private renderTabs(): void {
-		clearNode(this.tabsEl);
-		for (const [key, entry] of this.openFiles) {
-			const tab = append(this.tabsEl, $('.mw-tab'));
+		clearNode(this.tabsListEl);
+		for (const [key, entry] of this.entries) {
+			const dirty = this.isDirty(entry);
+			const tab = append(this.tabsListEl, $('.mw-tab'));
 			tab.classList.toggle('active', key === this.activeKey);
-			tab.classList.toggle('dirty', entry.dirty);
-			tab.title = entry.uri.path;
+			tab.classList.toggle('dirty', dirty);
+			const provider = entry.viewType ? this.customEditors.get(entry.viewType) : undefined;
+			tab.title = provider ? `${entry.uri.path} (${provider.displayName})` : entry.uri.path;
 			const label = append(tab, $('span.mw-tab-label'));
 			label.textContent = basename(entry.uri);
 			const close = append(tab, $('.mw-tab-close'));
 			const closeIcon = append(close, $('span.codicon'));
-			closeIcon.classList.add(entry.dirty ? 'codicon-circle-filled' : 'codicon-close');
+			closeIcon.classList.add(dirty ? 'codicon-circle-filled' : 'codicon-close');
 			tab.addEventListener('click', (e) => {
 				if (!(e.target instanceof Node) || !close.contains(e.target)) {
 					this.setActive(key);
+					this.focusActive();
 				}
 			});
 			close.addEventListener('click', () => this.closeFile(entry.uri));
 		}
+		this.renderTabActions();
+	}
+
+	/** "Open with" affordances for the active file, like VS Code's editor title actions. */
+	private renderTabActions(): void {
+		clearNode(this.tabsActionsEl);
+		const entry = this.activeKey ? this.entries.get(this.activeKey) : undefined;
+		if (!entry) {
+			return;
+		}
+		const addAction = (icon: string, title: string, run: () => void) => {
+			const button = append(this.tabsActionsEl, $('.mw-tab-action'));
+			button.title = title;
+			append(button, $(`span.codicon.codicon-${icon}`));
+			button.addEventListener('click', run);
+		};
+		if (entry.kind === 'custom') {
+			addAction('go-to-file', 'Reopen as Text Editor', () => this.openFile(entry.uri, { openWith: 'text' }));
+		}
+		for (const provider of this.customEditors.getForResource(entry.uri)) {
+			if (provider.viewType !== entry.viewType) {
+				addAction('open-preview', `Open with ${provider.displayName}`, () => this.openFile(entry.uri, { openWith: provider.viewType }));
+			}
+		}
 	}
 
 	override dispose(): void {
-		for (const entry of this.openFiles.values()) {
-			entry.listeners.dispose();
-			entry.model.dispose();
+		for (const entry of this.entries.values()) {
+			this.disposeEntry(entry, { releaseModel: true });
 		}
-		this.openFiles.clear();
+		this.entries.clear();
 		super.dispose();
 	}
 }
