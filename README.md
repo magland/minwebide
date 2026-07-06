@@ -48,6 +48,10 @@ npm run dev   # start the demo app
 
 ## Building apps on minwebide
 
+**Full guide: [docs/creating-an-app.md](docs/creating-an-app.md)** — project
+setup, the boot sequence, file system, themes/languages, custom editors,
+output channels, file runners, secondary side bar views, deployment, gotchas.
+
 minwebide is distributed as *source* (its `package.json` exports point at
 `src/*.ts`; Vite compiles it as part of the app). To start a new app repo:
 

@@ -28,7 +28,7 @@ cp -r "$ROOT/templates/app/." "$TARGET/"
 APP_NAME="$(basename "$(cd "$TARGET" && pwd)")"
 REL_PATH="$(realpath --relative-to="$TARGET" "$ROOT")"
 
-find "$TARGET" -type f \( -name '*.json' -o -name '*.ts' -o -name '*.html' \) -print0 |
+find "$TARGET" -type f \( -name '*.json' -o -name '*.ts' -o -name '*.html' -o -name '*.md' \) -print0 |
   xargs -0 sed -i "s|__APP_NAME__|$APP_NAME|g; s|__MINWEBIDE_PATH__|$REL_PATH|g"
 
 echo "Created $APP_NAME at $TARGET (minwebide dependency: file:$REL_PATH)"
