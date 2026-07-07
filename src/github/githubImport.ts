@@ -300,7 +300,8 @@ function apiGet(path: string, auth: string | undefined): Promise<any> {
 	return githubApi('GET', path, auth);
 }
 
-async function fetchBlob(
+/** Fetches one blob of a pinned commit (anonymously via raw.githubusercontent.com when possible). */
+export async function fetchBlob(
 	owner: string,
 	repo: string,
 	commitSha: string,

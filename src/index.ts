@@ -10,8 +10,8 @@ export type {
 	GitHubRepoMetadata,
 	SkippedFile,
 } from './github/githubImport';
-export { computeGitBlobSha, diffGitHubWorkspace, publishGitHubRepo, pushGitHubChanges, resyncGitHubRepo, transplantGitHubWorkspace } from './github/githubSync';
-export type { GitHubPublishOptions, GitHubPublishResult, GitHubPushOptions, GitHubPushResult, GitHubWorkspaceChanges } from './github/githubSync';
+export { computeGitBlobSha, diffGitHubWorkspace, publishGitHubRepo, pushGitHubChanges, resyncGitHubRepo, revertGitHubFiles, transplantGitHubWorkspace } from './github/githubSync';
+export type { GitHubPublishOptions, GitHubPublishResult, GitHubPushOptions, GitHubPushResult, GitHubRevertOptions, GitHubWorkspaceChanges } from './github/githubSync';
 export { attachGitHubSourceControl, attachGitHubWorkspace } from './github/githubView';
 export type { GitHubSourceControlOptions, GitHubWorkspaceOptions, GitHubWorkspaceView } from './github/githubView';
 export { clearGitHubToken, getStoredGitHubToken, requestGitHubToken, storeGitHubToken } from './github/githubAuth';

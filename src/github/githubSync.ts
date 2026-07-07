@@ -1,7 +1,7 @@
 import { URI } from 'vs/base/common/uri';
 import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import {
-	getGitHubRepoMetadata, githubApi, GitHubApiError, importGitHubRepo, parseGitHubSpec, runLimited, setGitHubRepoMetadata,
+	fetchBlob, getGitHubRepoMetadata, githubApi, GitHubApiError, importGitHubRepo, parseGitHubSpec, runLimited, setGitHubRepoMetadata,
 	type GitHubFileState, type GitHubImportOptions, type GitHubImportResult,
 } from './githubImport';
 
@@ -74,6 +74,53 @@ export async function diffGitHubWorkspace(fs: WorkspaceFileSystem, target = '/')
 		list.sort();
 	}
 	return { modified, added, deleted, total: modified.length + added.length + deleted.length };
+}
+
+export interface GitHubRevertOptions {
+	/** GitHub token — needed for private repositories. */
+	readonly auth?: string;
+	readonly onProgress?: (done: number, total: number) => void;
+}
+
+/**
+ * Reverts the given target-relative paths to the imported baseline commit:
+ * modified and deleted files are restored from their pinned blobs, added
+ * files are deleted. The per-file counterpart of {@link resyncGitHubRepo} —
+ * the baseline itself does not move, and other files are untouched.
+ */
+export async function revertGitHubFiles(
+	fs: WorkspaceFileSystem,
+	target = '/',
+	paths: readonly string[],
+	options: GitHubRevertOptions = {},
+): Promise<void> {
+	const metadata = getGitHubRepoMetadata(fs, target);
+	if (!metadata) {
+		throw new Error(`${target} was not imported from GitHub (no import metadata)`);
+	}
+	const { owner, repo, commitSha, dir } = metadata;
+	const uriFor = (path: string) => target === '/' ? `/${path}` : `${target}/${path}`;
+	const restore = paths.filter(path => metadata.files[path]);
+	const remove = paths.filter(path => !metadata.files[path]);
+	let done = 0;
+	// like the import: fetches run concurrently, IndexedDB writes serialized
+	// (concurrent createFolder calls on shared parents race)
+	let writeQueue: Promise<void> = Promise.resolve();
+	await runLimited(restore, 6, async path => {
+		const bytes = await fetchBlob(owner, repo, commitSha, {
+			repoPath: dir ? `${dir}/${path}` : path,
+			sha: metadata.files[path].sha,
+		}, options.auth);
+		writeQueue = writeQueue.then(async () => {
+			await fs.writeFile(uriFor(path), bytes);
+			options.onProgress?.(++done, paths.length);
+		});
+		await writeQueue;
+	});
+	for (const path of remove) {
+		await fs.deleteFile(uriFor(path)).catch(() => undefined);
+		options.onProgress?.(++done, paths.length);
+	}
 }
 
 export interface GitHubPushOptions {

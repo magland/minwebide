@@ -6,7 +6,7 @@ import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import type { OutputChannel } from '../workbench/outputChannels';
 import { clearGitHubToken, getGitHubTokenUser, getStoredGitHubToken, requestGitHubToken } from './githubAuth';
 import { getGitHubRepoMetadata, GitHubApiError, importGitHubRepo, parseGitHubSpec, type GitHubImportResult, type GitHubRepoSpec } from './githubImport';
-import { diffGitHubWorkspace, publishGitHubRepo, pushGitHubChanges, resyncGitHubRepo, type GitHubPublishResult, type GitHubWorkspaceChanges } from './githubSync';
+import { diffGitHubWorkspace, publishGitHubRepo, pushGitHubChanges, resyncGitHubRepo, revertGitHubFiles, type GitHubPublishResult, type GitHubWorkspaceChanges } from './githubSync';
 
 // A VS Code-style source control experience over a workspace's GitHub state.
 // Two modes, switching automatically:
@@ -335,6 +335,19 @@ function attachView(
 				...changes.added.map(path => ({ path, kind: 'A' as const })),
 				...changes.deleted.map(path => ({ path, kind: 'D' as const })),
 			].sort((a, b) => a.path.localeCompare(b.path));
+			if (rows.length > 0) {
+				const header = append(changesEl, $('.mw-github-changes-header'));
+				append(header, $('span.mw-github-changes-title', undefined, 'Changes'));
+				const discardAll = append(header, $('button.mw-github-icon-button.codicon.codicon-discard')) as HTMLButtonElement;
+				discardAll.title = 'Discard All Changes';
+				discardAll.addEventListener('click', () => {
+					const m = getGitHubRepoMetadata(fs, target)!;
+					if (window.confirm(`Discard all ${rows.length} change${rows.length === 1 ? '' : 's'} and restore ${repoLabel} to ${m.commitSha.slice(0, 7)}? Unsaved edits are lost and new files are deleted.`)) {
+						void doRevert(rows.map(r => r.path));
+					}
+				});
+				append(header, $('span.mw-github-changes-count', undefined, String(rows.length)));
+			}
 			for (const { path, kind } of rows) {
 				const row = append(changesEl, $(`.mw-github-change.${kind === 'M' ? 'modified' : kind === 'A' ? 'added' : 'deleted'}`));
 				append(row, $('span.codicon.codicon-file'));
@@ -343,6 +356,19 @@ function attachView(
 				if (slash > 0) {
 					append(row, $('span.mw-github-change-dir', undefined, path.slice(0, slash)));
 				}
+				const discard = append(row, $('button.mw-github-icon-button.codicon.codicon-discard')) as HTMLButtonElement;
+				discard.title = kind === 'A' ? 'Discard Changes (deletes the file)'
+					: kind === 'D' ? 'Discard Changes (restores the file)'
+					: 'Discard Changes';
+				discard.addEventListener('click', e => {
+					e.stopPropagation();
+					const question = kind === 'A' ? `Discard changes and DELETE ${path}? It does not exist in the repository.`
+						: kind === 'D' ? `Restore ${path} from the imported commit?`
+						: `Discard changes in ${path}? Unsaved edits are lost.`;
+					if (window.confirm(question)) {
+						void doRevert([path]);
+					}
+				});
 				append(row, $('span.mw-github-change-kind', undefined, kind));
 				row.title = path;
 				if (kind !== 'D') {
@@ -381,6 +407,31 @@ function attachView(
 			} finally {
 				refreshing = false;
 			}
+		};
+
+		// revert the given paths to the imported baseline (already confirmed)
+		const doRevert = async (paths: readonly string[]): Promise<void> => {
+			pushButton.disabled = true;
+			resyncButton.disabled = true;
+			try {
+				await withReadAuth(workbench, options, repoLabel, auth => revertGitHubFiles(fs, target, paths, {
+					auth,
+					onProgress: (done, total) => { messageEl.textContent = `Discarding ${done}/${total}...`; },
+				}));
+				channel.appendLine(paths.length === 1 ? `Discarded changes in ${paths[0]}` : `Discarded changes in ${paths.length} files`);
+				// an explicit revert: open editors on these files follow, unsaved
+				// edits included, and editors on discarded new files close — while
+				// every other editor keeps its state
+				await workbench.editorArea.reloadFromDisk(true, paths.map(path => target === '/' ? `/${path}` : `${target}/${path}`));
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				channel.appendLine(`Discard failed: ${message}`);
+				messageEl.textContent = `Discard failed: ${message}`;
+			} finally {
+				pushButton.disabled = false;
+				resyncButton.disabled = false;
+			}
+			await doRefresh();
 		};
 
 		const doPush = async (): Promise<void> => {

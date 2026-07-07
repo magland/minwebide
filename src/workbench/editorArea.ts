@@ -234,11 +234,17 @@ export class EditorArea extends Disposable {
 	 * Reloads open editors from disk. Without `force`, only non-dirty text
 	 * models follow the disk (unsaved edits win, VS Code style). With `force`
 	 * (an explicit revert, e.g. after re-importing a repo), unsaved edits are
-	 * discarded too and editors whose files are gone get closed.
+	 * discarded too and editors whose files are gone get closed. `paths`
+	 * limits the reload to those workspace paths (a per-file revert), leaving
+	 * every other editor — dirty or not — untouched.
 	 */
-	async reloadFromDisk(force = false): Promise<void> {
+	async reloadFromDisk(force = false, paths?: readonly string[]): Promise<void> {
+		const only = paths ? new Set(paths) : undefined;
 		if (force) {
 			for (const entry of [...this.entries.values()]) {
+				if (only && !only.has(entry.uri.path)) {
+					continue;
+				}
 				if (!await this.fs.fileService.exists(entry.uri)) {
 					this.forceClose(entry.key);
 				}
@@ -246,6 +252,9 @@ export class EditorArea extends Disposable {
 		}
 		for (const [key, record] of [...this.models]) {
 			if (!this.models.has(key) || (record.dirty && !force)) {
+				continue;
+			}
+			if (only && !only.has(record.model.uri.path)) {
 				continue;
 			}
 			let text: string | undefined;

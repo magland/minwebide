@@ -358,7 +358,10 @@ await attachGitHubWorkspace(workbench, fs, `${owner}/${repo}`);
   badge) lists the files modified/added/deleted relative to the imported
   commit — compared by git blob SHA, so only real content differences count —
   with a *Reload from GitHub* action that discards local changes and
-  re-imports the ref (picking up newer upstream commits).
+  re-imports the ref (picking up newer upstream commits). Each change row has
+  a hover *Discard Changes* action (restore a modified/deleted file from the
+  baseline commit, delete an added one), and the list header a *Discard All
+  Changes* action — also available programmatically as `revertGitHubFiles`.
 - **Commit & Push** commits the changes on top of the imported commit and
   pushes to the branch via the Git Data API. Sign-in reproduces VS Code's own
   PAT flow: a dialog opens GitHub's token page pre-filled with a description

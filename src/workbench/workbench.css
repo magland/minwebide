@@ -569,6 +569,59 @@
 	overflow-y: auto;
 }
 
+.mw-github-changes-header {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 12px 2px;
+	line-height: 20px;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+}
+
+.mw-github-changes-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mw-github-changes-count {
+	flex-shrink: 0;
+	padding: 0 6px;
+	border-radius: 11px;
+	font-size: 11px;
+	font-weight: 400;
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+/* inline discard actions, shown on hover like VS Code's SCM rows */
+.mw-github-icon-button {
+	flex-shrink: 0;
+	margin-left: auto;
+	padding: 1px;
+	border: none;
+	border-radius: 3px;
+	background: none;
+	cursor: pointer;
+	color: var(--vscode-icon-foreground);
+	visibility: hidden;
+}
+
+.mw-github-icon-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.mw-github-changes-header:hover .mw-github-icon-button,
+.mw-github-change:hover .mw-github-icon-button {
+	visibility: visible;
+}
+
+.mw-github-change .mw-github-icon-button + .mw-github-change-kind {
+	margin-left: 0;
+}
+
 .mw-github-change {
 	display: flex;
 	align-items: center;
