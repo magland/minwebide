@@ -7,6 +7,8 @@
 	flex-direction: column;
 	height: 100%;
 	overflow: hidden;
+	/* anchor for VS Code's overlay widgets (context menus, dialogs) */
+	position: relative;
 	background-color: var(--vscode-editor-background);
 	color: var(--vscode-foreground);
 	font-size: 13px;
@@ -112,6 +114,23 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* inline rename / new file input, like VS Code's explorer */
+.mw-explorer-item-input {
+	flex: 1;
+	min-width: 0;
+}
+
+.mw-explorer-item-input .monaco-inputbox {
+	width: 100%;
+	line-height: normal;
+}
+
+.mw-explorer-item-input .monaco-inputbox > .ibwrapper > .input {
+	padding: 0 2px;
+	height: 20px;
+	font-size: 13px;
 }
 
 /* ---- search view ---- */

@@ -2,7 +2,7 @@ import { $, append, clearNode } from 'vs/base/browser/dom';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { basename } from 'vs/base/common/resources';
+import { basename, isEqualOrParent } from 'vs/base/common/resources';
 import { URI } from 'vs/base/common/uri';
 import * as monaco from '../editor/monaco';
 import type { WorkspaceFileSystem } from '../fs/fileSystem';
@@ -34,6 +34,8 @@ export interface OpenFileOptions {
 	readonly revealRange?: monaco.IRange;
 	/** Open with a specific custom editor viewType, or 'text' to force the text editor. */
 	readonly openWith?: string;
+	/** Keep focus where it is instead of focusing the opened editor. */
+	readonly preserveFocus?: boolean;
 }
 
 /**
@@ -138,7 +140,9 @@ export class EditorArea extends Disposable {
 			this.editor.revealRangeInCenter(options.revealRange);
 			this.editor.setSelection(options.revealRange);
 		}
-		this.focusActive();
+		if (!options?.preserveFocus) {
+			this.focusActive();
+		}
 	}
 
 	closeFile(uri: URI): void {
@@ -148,6 +152,53 @@ export class EditorArea extends Disposable {
 			return;
 		}
 		if (this.isDirty(entry) && !confirm(`Discard unsaved changes to ${basename(uri)}?`)) {
+			return;
+		}
+		this.forceClose(key);
+	}
+
+	/** Close any open tabs for a deleted file or folder, without prompting. */
+	handleDelete(uri: URI): void {
+		for (const entry of [...this.entries.values()]) {
+			if (isEqualOrParent(entry.uri, uri)) {
+				this.forceClose(entry.key);
+			}
+		}
+	}
+
+	/**
+	 * Point open tabs at a moved file or folder: reopen affected entries at
+	 * their new URI, carrying over unsaved edits and the active tab.
+	 */
+	async handleMove(from: URI, to: URI): Promise<void> {
+		const moved = [...this.entries.values()].filter(entry => isEqualOrParent(entry.uri, from));
+		if (moved.length === 0) {
+			return;
+		}
+		const activeKey = this.activeKey;
+		let newActiveUri: URI | undefined;
+		for (const entry of moved) {
+			const newUri = to.with({ path: to.path + entry.uri.path.substring(from.path.length) });
+			const record = entry.usesModel ? this.models.get(entry.key) : undefined;
+			const dirtyText = record?.dirty ? record.model.getValue() : undefined;
+			const viewType = entry.viewType;
+			if (entry.key === activeKey) {
+				newActiveUri = newUri;
+			}
+			this.forceClose(entry.key);
+			await this.openFile(newUri, viewType ? { openWith: viewType } : undefined);
+			if (dirtyText !== undefined) {
+				monaco.editor.getModel(newUri)?.setValue(dirtyText);
+			}
+		}
+		if (newActiveUri) {
+			this.setActive(newActiveUri.toString());
+		}
+	}
+
+	private forceClose(key: string): void {
+		const entry = this.entries.get(key);
+		if (!entry) {
 			return;
 		}
 		if (this.activeKey === key) {

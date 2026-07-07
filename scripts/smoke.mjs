@@ -14,8 +14,9 @@ try {
 	await page.goto('http://localhost:4173/', { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1500);
 
-	// open README.md from the explorer
-	await page.getByText('README.md', { exact: true }).click();
+	// open README.md from the explorer (double click focuses the editor,
+	// like VS Code; single click previews with focus staying in the tree)
+	await page.getByText('README.md', { exact: true }).dblclick();
 	await page.waitForTimeout(1000);
 	await page.screenshot({ path: process.argv[2] + '/opened.png' });
 

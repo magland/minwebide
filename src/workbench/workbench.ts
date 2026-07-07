@@ -22,6 +22,7 @@ import { LogOutputChannel, OutputChannel, OutputChannelOptions, OutputView } fro
 import { Panel } from './panel';
 import { FileRunner, RunnerRegistry } from './runners';
 import { SearchView } from './searchView';
+import { WorkbenchServices } from './services';
 import { StatusBar } from './statusBar';
 
 export interface WorkbenchOptions {
@@ -71,6 +72,7 @@ export class Workbench extends Disposable {
 	readonly activityBar: ActivityBar;
 	readonly customEditors = new CustomEditorRegistry();
 	readonly runners = new RunnerRegistry();
+	readonly services: WorkbenchServices;
 	readonly output: OutputView;
 	readonly auxiliaryBar: AuxiliaryBar;
 
@@ -101,6 +103,7 @@ export class Workbench extends Disposable {
 		this.element.style.fontFamily = DEFAULT_FONT_FAMILY;
 		applyThemeToElement(options.theme, this.element);
 		const editorThemeName = defineEditorTheme(options.theme);
+		this.services = this._register(new WorkbenchServices(this.element));
 
 		const mainEl = append(this.element, $('.mw-main'));
 
@@ -143,7 +146,7 @@ export class Workbench extends Disposable {
 			(runner) => this.runningRunners.has(runner.id),
 		));
 		this.panel = this._register(new Panel());
-		this.explorer = this._register(new ExplorerView(options.fileSystem));
+		this.explorer = this._register(new ExplorerView(options.fileSystem, this.services));
 		this.search = this._register(new SearchView(options.fileSystem));
 		this.output = this._register(new OutputView(editorThemeName, () => this.panel.setActive('output')));
 		this.auxiliaryBar = this._register(new AuxiliaryBar((visible) => this.setAuxiliaryBarVisible(visible)));
@@ -173,7 +176,9 @@ export class Workbench extends Disposable {
 
 		// sidebar views
 		this.registerSideView('explorer', options.workspaceName ? `Explorer: ${options.workspaceName}` : 'Explorer', this.explorer.element, () => this.layoutSidebar());
-		this._register(this.explorer.onDidOpenFile(uri => this.openFile(uri)));
+		this._register(this.explorer.onDidOpenFile(({ uri, focusEditor }) => this.openFile(uri, { preserveFocus: !focusEditor })));
+		this._register(this.explorer.onDidMove(({ from, to }) => this.editorArea.handleMove(from, to)));
+		this._register(this.explorer.onDidDelete(uri => this.editorArea.handleDelete(uri)));
 
 		this.registerSideView('search', 'Search', this.search.element, () => {
 			this.layoutSidebar();
