@@ -17,6 +17,18 @@ export type { GitHubSourceControlOptions, GitHubWorkspaceOptions, GitHubWorkspac
 export { clearGitHubToken, getStoredGitHubToken, requestGitHubToken, storeGitHubToken } from './github/githubAuth';
 export { GitHubApiError, githubApi } from './github/githubImport';
 
+export { createProjectRegistry } from './shell/projectRegistry';
+export type { ProjectInfo, ProjectRegistry } from './shell/projectRegistry';
+export {
+	githubWorkspaceDbName,
+	openGitHubRoute,
+	openProjectIde,
+	openStartingFile,
+	renderProjectLanding,
+	startProjectApp,
+} from './shell/projectApp';
+export type { AppWorkbench, ProjectAppConfig } from './shell/projectApp';
+
 export { loadColorTheme, applyThemeToElement, WorkbenchTheme } from './theme/themes';
 export type { TokenColorRule } from './theme/themes';
 

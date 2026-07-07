@@ -399,7 +399,44 @@ available via `getGitHubRepoMetadata(fs, target)`. The demo's
 `#github/owner/repo` URL fragment to this pattern; the regular demo
 workspace is never touched.
 
-## 11. Deploying (GitHub Pages)
+## 11. The project-app shell
+
+For apps structured as "projects stored in your browser" (like stan-web-ide
+and numbl-web-ide), the shell packages everything above into three routes —
+`#/` (a project-picker landing page), `#/project/<id>` (the IDE on that
+project's own IndexedDB database), and `#/github/<spec>` (a GitHub repo as
+its own workspace) — plus per-project source control: publish, change
+tracking, push, reload. An app supplies a config and its workbench assembly:
+
+```ts
+const config: ProjectAppConfig = {
+  appId: 'my-app',                    // storage keys and database names
+  appName: 'my app',                  // titles, GitHub token description
+  assembleWorkbench: async (container, fs, workspaceName, theme) => {
+    const workbench = createWorkbench(container, { fileSystem: fs, theme, workspaceName });
+    workbench.registerRunner(myRunner);
+    return { workbench, dispose: () => workbench.dispose() };
+  },
+  startingFiles: ['/main.foo', '/README.md'],  // first editor to open
+  landing: {
+    subtitle: 'Run foo in your browser.',
+    links: [{ label: 'example.org', href: 'https://example.org' }],
+    sampleWorkspace,                            // "New sample project" seed
+    emptyWorkspace: (project) => ({ '/main.foo': `// ${project.name}\n` }),
+  },
+};
+
+await startProjectApp(document.getElementById('app')!, theme, config);
+```
+
+`startProjectApp` returns the `ProjectRegistry` (list/create/rename/
+duplicate/delete projects, each backed by `<appId>-project-<id>` databases)
+for app code that needs it; the pieces are also exported individually
+(`createProjectRegistry`, `renderProjectLanding`, `openProjectIde`,
+`openGitHubRoute`, `githubWorkspaceDbName`, `openStartingFile`) for apps
+that want a different composition.
+
+## 12. Deploying (GitHub Pages)
 
 The build is fully static (`npm run build` → `dist/`). Because minwebide is a
 path dependency, CI checks out both repos as siblings. See the demo's
@@ -423,7 +460,7 @@ for the complete recipe; the essential steps:
 If the site lives under a subpath (project pages), set Vite's `base`
 accordingly (the demo reads `DEPLOY_BASE`).
 
-## 12. Gotchas
+## 13. Gotchas
 
 - **`getText()` returns unsaved editor contents** when the file is open —
   usually what a runner wants; use `readBytes()`/`fileService.readFile` for
