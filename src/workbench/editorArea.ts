@@ -1,4 +1,5 @@
 import { $, append, clearNode } from 'vs/base/browser/dom';
+import { Delayer } from 'vs/base/common/async';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
@@ -98,6 +99,13 @@ export class EditorArea extends Disposable {
 			keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
 			run: () => this.saveActive(),
 		});
+
+		// follow external changes (other tabs, imports, runners): non-dirty
+		// models reload from disk, VS Code style
+		const reloadDelayer = this._register(new Delayer<void>(150));
+		this._register(this.fs.fileService.onDidFilesChange(() => {
+			reloadDelayer.trigger(() => this.reloadFromDisk(false));
+		}));
 
 		this.updateEditorVisibility();
 	}
@@ -220,6 +228,40 @@ export class EditorArea extends Disposable {
 		} else {
 			this.renderTabs();
 		}
+	}
+
+	/**
+	 * Reloads open editors from disk. Without `force`, only non-dirty text
+	 * models follow the disk (unsaved edits win, VS Code style). With `force`
+	 * (an explicit revert, e.g. after re-importing a repo), unsaved edits are
+	 * discarded too and editors whose files are gone get closed.
+	 */
+	async reloadFromDisk(force = false): Promise<void> {
+		if (force) {
+			for (const entry of [...this.entries.values()]) {
+				if (!await this.fs.fileService.exists(entry.uri)) {
+					this.forceClose(entry.key);
+				}
+			}
+		}
+		for (const [key, record] of [...this.models]) {
+			if (!this.models.has(key) || (record.dirty && !force)) {
+				continue;
+			}
+			let text: string | undefined;
+			try {
+				text = (await this.fs.fileService.readFile(record.model.uri)).value.toString();
+			} catch {
+				continue; // gone from disk (possibly transiently, mid-import); keep the buffer
+			}
+			if (text !== record.model.getValue()) {
+				// an edit (not setValue) keeps the undo stack intact
+				record.model.pushEditOperations([], [{ range: record.model.getFullModelRange(), text }], () => null);
+			}
+			record.savedVersionId = record.model.getAlternativeVersionId();
+			record.dirty = false;
+		}
+		this.renderTabs();
 	}
 
 	async saveActive(): Promise<void> {

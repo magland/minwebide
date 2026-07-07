@@ -17,6 +17,8 @@ export interface WorkspaceFileSystem {
 	/** VS Code's own FileService, backed by IndexedDB. */
 	readonly fileService: FileService;
 	readonly scheme: string;
+	/** IndexedDB database name backing this workspace. */
+	readonly dbName: string;
 	/** Root folder of the workspace. */
 	readonly root: URI;
 	/** Write the given path → contents map, skipping files that already exist. */
@@ -48,6 +50,7 @@ export async function createIndexedDBFileSystem(options: IndexedDBFileSystemOpti
 	return {
 		fileService,
 		scheme,
+		dbName,
 		root,
 		async seed(files: Record<string, string | Uint8Array>): Promise<void> {
 			for (const [path, contents] of Object.entries(files)) {

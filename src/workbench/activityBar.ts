@@ -22,11 +22,27 @@ export class ActivityBar extends Disposable {
 		super();
 		this.element = $('.mw-activitybar');
 		for (const item of items) {
-			const el = append(this.element, $('.mw-activitybar-item'));
-			el.title = item.title;
-			append(el, $(`span.codicon.codicon-${item.icon}`));
-			el.addEventListener('click', () => this._onDidSelect.fire(item.id));
-			this.itemEls.set(item.id, el);
+			this.addItem(item);
+		}
+	}
+
+	addItem(item: ActivityBarItem): void {
+		const el = append(this.element, $('.mw-activitybar-item'));
+		el.title = item.title;
+		append(el, $(`span.codicon.codicon-${item.icon}`));
+		el.addEventListener('click', () => this._onDidSelect.fire(item.id));
+		this.itemEls.set(item.id, el);
+	}
+
+	/** Shows a count badge on an item (VS Code's activity bar badge); 0 hides it. */
+	setBadge(id: string, count: number): void {
+		const el = this.itemEls.get(id);
+		if (!el) {
+			return;
+		}
+		el.querySelector('.mw-activitybar-badge')?.remove();
+		if (count > 0) {
+			append(el, $('.mw-activitybar-badge', undefined, count > 99 ? '99+' : String(count)));
 		}
 	}
 

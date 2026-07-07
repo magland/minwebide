@@ -175,15 +175,15 @@ export class Workbench extends Disposable {
 		}), 200);
 
 		// sidebar views
-		this.registerSideView('explorer', options.workspaceName ? `Explorer: ${options.workspaceName}` : 'Explorer', this.explorer.element, () => this.layoutSidebar());
+		this.registerSideView('explorer', options.workspaceName ? `Explorer: ${options.workspaceName}` : 'Explorer', this.explorer.element, { onShow: () => this.layoutSidebar() });
 		this._register(this.explorer.onDidOpenFile(({ uri, focusEditor }) => this.openFile(uri, { preserveFocus: !focusEditor })));
 		this._register(this.explorer.onDidMove(({ from, to }) => this.editorArea.handleMove(from, to)));
 		this._register(this.explorer.onDidDelete(uri => this.editorArea.handleDelete(uri)));
 
-		this.registerSideView('search', 'Search', this.search.element, () => {
+		this.registerSideView('search', 'Search', this.search.element, { onShow: () => {
 			this.layoutSidebar();
 			this.search.focus();
-		});
+		} });
 		this._register(this.search.onDidOpenMatch(match => this.openFile(match.uri, {
 			revealRange: {
 				startLineNumber: match.lineNumber,
@@ -243,10 +243,18 @@ export class Workbench extends Disposable {
 		this.explorer.setRoot();
 	}
 
-	registerSideView(id: string, title: string, element: HTMLElement, onShow?: () => void): void {
+	registerSideView(id: string, title: string, element: HTMLElement, options?: { icon?: string; onShow?: () => void }): void {
 		element.style.display = 'none';
 		this.sidebarBodyEl.appendChild(element);
-		this.sidebarPanes.set(id, { title, element, onShow });
+		this.sidebarPanes.set(id, { title, element, onShow: options?.onShow });
+		if (options?.icon) {
+			this.activityBar.addItem({ id, icon: options.icon, title });
+		}
+	}
+
+	/** Shows a count badge on a side view's activity bar icon; 0 hides it. */
+	setSideViewBadge(id: string, count: number): void {
+		this.activityBar.setBadge(id, count);
 	}
 
 	showSideView(id: string): void {

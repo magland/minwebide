@@ -62,6 +62,23 @@
 	background-color: var(--vscode-activityBar-activeBorder);
 }
 
+.mw-activitybar-badge {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: 8px;
+	font-size: 9px;
+	font-weight: 600;
+	line-height: 16px;
+	text-align: center;
+	box-sizing: border-box;
+	background-color: var(--vscode-activityBarBadge-background);
+	color: var(--vscode-activityBarBadge-foreground);
+}
+
 /* ---- side bar ---- */
 
 .mw-sidebar {
@@ -472,4 +489,289 @@
 
 .mw-statusbar-spacer {
 	flex: 1;
+}
+
+/* ---- GitHub source control view ---- */
+
+.mw-github {
+	display: flex;
+	flex-direction: column;
+	font-size: 13px;
+}
+
+.mw-github-repo {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 12px 6px;
+}
+
+.mw-github-repo > .codicon {
+	font-size: 16px;
+	color: var(--vscode-icon-foreground);
+}
+
+.mw-github-repo-text {
+	overflow: hidden;
+}
+
+.mw-github-repo-name {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+
+.mw-github-repo-name:hover {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: underline;
+}
+
+.mw-github-repo-ref {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mw-github-actions {
+	padding: 4px 12px 8px;
+}
+
+.mw-github-button {
+	width: 100%;
+	padding: 4px 10px;
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 2px;
+	font-size: 13px;
+	font-family: inherit;
+	cursor: pointer;
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.mw-github-button:hover:enabled {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.mw-github-button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.mw-github-message {
+	padding: 0 12px 6px;
+	min-height: 16px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mw-github-changes {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.mw-github-change {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 2px 12px;
+	line-height: 20px;
+	cursor: pointer;
+	overflow: hidden;
+}
+
+.mw-github-change:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.mw-github-change .codicon {
+	flex-shrink: 0;
+	color: var(--vscode-icon-foreground);
+}
+
+.mw-github-change-name {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mw-github-change-dir {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mw-github-change-kind {
+	margin-left: auto;
+	flex-shrink: 0;
+	font-weight: 600;
+}
+
+.mw-github-change.modified .mw-github-change-kind {
+	color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+}
+
+.mw-github-change.added .mw-github-change-kind {
+	color: var(--vscode-gitDecoration-untrackedResourceForeground, #73c991);
+}
+
+.mw-github-change.deleted .mw-github-change-kind {
+	color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+}
+
+.mw-github-change.deleted .mw-github-change-name {
+	text-decoration: line-through;
+	cursor: default;
+}
+
+.mw-github-commit {
+	padding: 4px 12px 0;
+}
+
+.mw-github-commit-message {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 4px 6px;
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 2px;
+	font-size: 13px;
+	font-family: inherit;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+}
+
+.mw-github-commit-message::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.mw-github-commit-message:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.mw-github-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.mw-github-button.secondary {
+	background-color: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.mw-github-button.secondary:hover:enabled {
+	background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.mw-github-account {
+	display: flex;
+	gap: 8px;
+	padding: 6px 12px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	border-top: 1px solid var(--vscode-sideBar-border, transparent);
+}
+
+.mw-github-account-link {
+	cursor: pointer;
+	color: var(--vscode-textLink-foreground);
+}
+
+.mw-github-account-link:hover {
+	text-decoration: underline;
+}
+
+/* ---- GitHub sign-in dialog ---- */
+
+.mw-github-auth-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 100;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	background-color: rgba(0, 0, 0, 0.36);
+}
+
+.mw-github-auth-dialog {
+	margin-top: 12vh;
+	width: 420px;
+	max-width: calc(100% - 40px);
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	border: 1px solid var(--vscode-editorWidget-border, transparent);
+	border-radius: 4px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+	background-color: var(--vscode-editorWidget-background);
+	color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+	font-size: 13px;
+}
+
+.mw-github-auth-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.mw-github-auth-text {
+	margin: 0;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mw-github-auth-input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 5px 6px;
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 2px;
+	font-size: 13px;
+	font-family: inherit;
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+}
+
+.mw-github-auth-input:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.mw-github-auth-error {
+	min-height: 16px;
+	font-size: 12px;
+	color: var(--vscode-errorForeground, #f48771);
+}
+
+.mw-github-auth-buttons {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.mw-github-auth-buttons .mw-github-button {
+	width: auto;
+	padding: 4px 14px;
+}
+
+.mw-github-form {
+	padding: 10px 12px 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.mw-github-form-text {
+	margin: 0;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.mw-github-form-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	cursor: pointer;
 }

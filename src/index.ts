@@ -1,6 +1,22 @@
 export { createIndexedDBFileSystem } from './fs/fileSystem';
 export type { IndexedDBFileSystemOptions, WorkspaceFileSystem } from './fs/fileSystem';
 
+export { importGitHubRepo, parseGitHubSpec, getGitHubRepoMetadata } from './github/githubImport';
+export type {
+	GitHubRepoSpec,
+	GitHubImportOptions,
+	GitHubImportProgress,
+	GitHubImportResult,
+	GitHubRepoMetadata,
+	SkippedFile,
+} from './github/githubImport';
+export { computeGitBlobSha, diffGitHubWorkspace, publishGitHubRepo, pushGitHubChanges, resyncGitHubRepo } from './github/githubSync';
+export type { GitHubPublishOptions, GitHubPublishResult, GitHubPushOptions, GitHubPushResult, GitHubWorkspaceChanges } from './github/githubSync';
+export { attachGitHubSourceControl, attachGitHubWorkspace } from './github/githubView';
+export type { GitHubSourceControlOptions, GitHubWorkspaceOptions, GitHubWorkspaceView } from './github/githubView';
+export { clearGitHubToken, getStoredGitHubToken, requestGitHubToken, storeGitHubToken } from './github/githubAuth';
+export { GitHubApiError, githubApi } from './github/githubImport';
+
 export { loadColorTheme, applyThemeToElement, WorkbenchTheme } from './theme/themes';
 export type { TokenColorRule } from './theme/themes';
 

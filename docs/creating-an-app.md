@@ -129,7 +129,10 @@ fs.fileService.onDidFilesChange(e => { /* fires for all changes, incl. other tab
 ```
 
 Changes broadcast across browser tabs of the same app automatically
-(BroadcastChannel), and the explorer refreshes itself on any change.
+(BroadcastChannel), the explorer refreshes itself on any change, and open
+editors with no unsaved edits reload from disk when their file changes
+(`workbench.editorArea.reloadFromDisk(true)` forces the reload for unsaved
+edits too — an explicit revert).
 
 ## 4. Themes and languages
 
@@ -306,7 +309,91 @@ The demo's `plot()` implementation
 is a reasonable starting point for chart panes; for serious plotting, mount
 your charting library of choice in the view's element.
 
-## 10. Deploying (GitHub Pages)
+## 10. Importing GitHub repositories
+
+`importGitHubRepo(fs, spec, options)` copies a public GitHub repository (or a
+subdirectory of one) into a workspace folder — anonymously, straight from the
+browser, no token or backend required:
+
+```ts
+import { importGitHubRepo } from 'minwebide';
+
+const result = await importGitHubRepo(fs, 'owner/repo', {
+  onProgress: p => console.log(`${p.written}/${p.total} ${p.path}`),
+});
+// result: { owner, repo, ref, commitSha, root, fileCount, skipped }
+```
+
+- `spec` — `'owner/repo'`, `'owner/repo@ref'` (branch, tag, or commit SHA), a
+  github.com URL (including `/tree/<ref>/<dir>` URLs, which import just that
+  subdirectory), or a parsed `GitHubRepoSpec` object.
+- `options.target` — destination folder (default `/<repo>`). The import fails
+  if the target is already occupied unless you pass `clean: true`.
+- `options.auth` — optional GitHub token. Anonymous imports work fine for
+  public repos: the listing costs at most 3 API requests (rate-limited to
+  60/hour per IP) and file contents come from `raw.githubusercontent.com`,
+  which doesn't count against that limit.
+- Symlinks, submodules, and files over `maxFileSize` (default 10 MiB) are
+  skipped and reported in `result.skipped`.
+
+**The share-link pattern.** For a "open this repo in the IDE" URL, don't
+import into your app's regular workspace — give the repo a workspace of its
+own: a dedicated file system (one `dbName` per repo) with the repo imported
+at the root. `attachGitHubWorkspace(workbench, fs, spec, options?)` packages
+the whole flow, VS Code style:
+
+```ts
+const fs = await createIndexedDBFileSystem({ dbName: `my-app-gh-${owner}-${repo}` });
+const workbench = createWorkbench(container, { fileSystem: fs, theme, workspaceName: `${owner}/${repo}` });
+await attachGitHubWorkspace(workbench, fs, `${owner}/${repo}`);
+```
+
+- The first visit imports the repo (status bar progress, a `GitHub` output
+  channel) and opens its README (`autoOpenReadme: false` to disable). Later
+  visits reopen the stored local copy, edits included.
+- A **Source Control** side view (activity bar icon with a pending-changes
+  badge) lists the files modified/added/deleted relative to the imported
+  commit — compared by git blob SHA, so only real content differences count —
+  with a *Reload from GitHub* action that discards local changes and
+  re-imports the ref (picking up newer upstream commits).
+- **Commit & Push** commits the changes on top of the imported commit and
+  pushes to the branch via the Git Data API. Sign-in reproduces VS Code's own
+  PAT flow: a dialog opens GitHub's token page pre-filled with a description
+  (`options.appName`) and the `repo` scope, the user pastes the token once,
+  and it stays in the browser's localStorage (fine-grained per-repo tokens
+  work too). Pushes are fast-forward-only — if the branch moved on GitHub
+  since the import, the push is refused rather than merged. On success the
+  provenance advances, so the workspace reads as clean.
+- The status bar shows `owner/repo@sha`, growing a `*` while the tree is
+  dirty; clicking it reveals the view.
+
+**Publishing a local workspace.** For workspaces that didn't come from GitHub
+(a project the user built in the app), attach
+`attachGitHubSourceControl(workbench, fs, { appName, defaultRepoName,
+onPublished })` instead. While unconnected, the Source Control view shows a
+publish form: a button opens github.com/new (name pre-filled from
+`defaultRepoName`) where the user creates an **empty** repository themselves
+— nothing is created programmatically, so a fine-grained token scoped to just
+that repo suffices — then pastes its URL and publishes.
+`publishGitHubRepo(fs, target, { auth, repo })` pushes the workspace as the
+initial commit; a repository that already has commits is refused, so a
+mistyped URL can never overwrite anything. Afterwards `onPublished` fires
+(typically to navigate to your app's GitHub route for the new repo); without
+it the view switches to change tracking in place. Both demo flows use this:
+the regular demo workspace is publishable, and `#github/...` workspaces track
+their source repo.
+
+The pieces are also exported individually: `diffGitHubWorkspace(fs, target)`
+returns `{ modified, added, deleted }`, `resyncGitHubRepo(fs, target)`
+re-imports at the stored ref, `computeGitBlobSha(bytes)` hashes like
+`git hash-object`, and the import provenance (repo, ref, commit SHA, per-file
+blob SHAs — persisted in localStorage keyed by the file system's `dbName`) is
+available via `getGitHubRepoMetadata(fs, target)`. The demo's
+`openGitHubWorkspace` in [demo/main.ts](../demo/main.ts) wires a
+`#github/owner/repo` URL fragment to this pattern; the regular demo
+workspace is never touched.
+
+## 11. Deploying (GitHub Pages)
 
 The build is fully static (`npm run build` → `dist/`). Because minwebide is a
 path dependency, CI checks out both repos as siblings. See the demo's
@@ -330,7 +417,7 @@ for the complete recipe; the essential steps:
 If the site lives under a subpath (project pages), set Vite's `base`
 accordingly (the demo reads `DEPLOY_BASE`).
 
-## 11. Gotchas
+## 12. Gotchas
 
 - **`getText()` returns unsaved editor contents** when the file is open —
   usually what a runner wants; use `readBytes()`/`fileService.readFile` for

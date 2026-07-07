@@ -1,4 +1,7 @@
-import { createIndexedDBFileSystem, createWorkbench, loadBuiltinTheme, registerBuiltinLanguages } from '../src';
+import {
+	attachGitHubSourceControl, attachGitHubWorkspace, createIndexedDBFileSystem, createWorkbench,
+	loadBuiltinTheme, parseGitHubSpec, registerBuiltinLanguages, Workbench, WorkspaceFileSystem,
+} from '../src';
 import { demoCustomEditors } from './customEditors';
 import { demoRunners } from './runners';
 import { sampleWorkspace } from './sampleWorkspace';
@@ -23,25 +26,60 @@ async function generateSampleImage(): Promise<Uint8Array> {
 	return new Uint8Array(await blob.arrayBuffer());
 }
 
-async function main(): Promise<void> {
-	const fs = await createIndexedDBFileSystem({ dbName: 'minwebide-demo' });
-	await fs.seed({
-		...sampleWorkspace,
-		'/assets/banner.png': await generateSampleImage(),
-	});
-
+async function createDemoWorkbench(fs: WorkspaceFileSystem, workspaceName: string): Promise<Workbench> {
 	const theme = await loadBuiltinTheme('dark_modern');
 	await registerBuiltinLanguages(theme);
-
 	const workbench = createWorkbench(document.getElementById('app')!, {
 		fileSystem: fs,
 		theme,
-		workspaceName: 'demo workspace',
+		workspaceName,
 		customEditors: demoCustomEditors,
 	});
 	for (const runner of demoRunners) {
 		workbench.registerRunner(runner);
 	}
+	return workbench;
+}
+
+/**
+ * A `#github/owner/repo[@ref]` fragment (full github.com URLs work too) opens
+ * that repository as its own workspace — a per-repo IndexedDB database, so the
+ * regular demo workspace is untouched. The first visit imports; later visits
+ * reopen the stored copy, edits included, with the Source Control view
+ * tracking local changes against the imported commit.
+ */
+async function openGitHubWorkspace(specText: string): Promise<void> {
+	const spec = parseGitHubSpec(specText);
+	const dbName = `minwebide-demo-gh-${spec.owner}-${spec.repo}${spec.ref ? `-${spec.ref}` : ''}`
+		.toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+	const fs = await createIndexedDBFileSystem({ dbName });
+	const workbench = await createDemoWorkbench(fs, `${spec.owner}/${spec.repo}`);
+	await attachGitHubWorkspace(workbench, fs, spec);
+}
+
+async function main(): Promise<void> {
+	const gh = /^#github\/(.+)$/.exec(window.location.hash);
+	if (gh) {
+		await openGitHubWorkspace(decodeURIComponent(gh[1]));
+		return;
+	}
+
+	const fs = await createIndexedDBFileSystem({ dbName: 'minwebide-demo' });
+	await fs.seed({
+		...sampleWorkspace,
+		'/assets/banner.png': await generateSampleImage(),
+	});
+	const workbench = await createDemoWorkbench(fs, 'demo workspace');
+	// unconnected → "Publish to GitHub" form; once published → the repo's own
+	// #github workspace becomes the place to work
+	await attachGitHubSourceControl(workbench, fs, {
+		appName: 'minwebide demo',
+		defaultRepoName: 'minwebide-demo-workspace',
+		onPublished: ({ owner, repo }) => {
+			window.location.hash = `#github/${owner}/${repo}`;
+			window.location.reload();
+		},
+	});
 }
 
 main();
