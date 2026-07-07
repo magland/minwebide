@@ -1,6 +1,7 @@
 import { URI } from 'vs/base/common/uri';
 import type { WorkspaceFileSystem } from '../fs/fileSystem';
 import {
+	BOOTSTRAP_FILE, BOOTSTRAP_MESSAGE,
 	getGitHubRepoMetadata, githubApi, GitHubApiError, importGitHubRepo, parseGitHubSpec, runLimited, setGitHubRepoMetadata,
 	type GitHubFileState, type GitHubImportOptions, type GitHubImportResult,
 } from './githubImport';
@@ -184,10 +185,6 @@ export async function pushGitHubChanges(fs: WorkspaceFileSystem, target = '/', o
 	return { commitSha: commit.sha, htmlUrl: commit.html_url, pushed: changes };
 }
 
-// Seeding an empty repository: the file and message of the throwaway commit
-// (see publishGitHubRepo). Recognized on retry so a failed publish can resume.
-const BOOTSTRAP_FILE = '.publish-bootstrap';
-const BOOTSTRAP_MESSAGE = 'minwebide publish bootstrap';
 
 /**
  * GitHub's git database lags a moment behind a repository's very first
@@ -326,6 +323,21 @@ export async function publishGitHubRepo(fs: WorkspaceFileSystem, target = '/', o
 		sha: commit.sha,
 		force: true,
 	});
+
+	// wait until the branch also READS back as the new commit, so an import
+	// that starts right after publish (an app navigating to its GitHub route)
+	// can't resolve the branch to the orphaned bootstrap on a lagging replica
+	for (let attempt = 0; attempt < 6; attempt++) {
+		try {
+			const head = await githubApi('GET', `/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`, auth);
+			if (head.sha === commit.sha) {
+				break;
+			}
+		} catch {
+			// keep waiting
+		}
+		await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+	}
 
 	setGitHubRepoMetadata(fs, target, { owner, repo, ref, commitSha: commit.sha, treeSha: tree.sha, files });
 

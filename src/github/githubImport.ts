@@ -61,6 +61,12 @@ export interface SkippedFile {
 	readonly reason: 'too-large' | 'symlink' | 'submodule';
 }
 
+// The seed commit publishGitHubRepo uses to initialize an empty repository
+// (later orphaned by a force-update). Imports recognize it so a read that
+// lands on it — replication lag right after a publish — can wait it out.
+export const BOOTSTRAP_FILE = '.publish-bootstrap';
+export const BOOTSTRAP_MESSAGE = 'minwebide publish bootstrap';
+
 /** A file of the imported commit: its git blob SHA and git mode ('100644' or '100755'). */
 export interface GitHubFileState {
 	readonly sha: string;
@@ -154,7 +160,13 @@ export async function importGitHubRepo(
 	if (!ref) {
 		ref = (await apiGet(`/repos/${owner}/${repo}`, options.auth)).default_branch as string;
 	}
-	const commit = await apiGet(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`, options.auth);
+	let commit = await apiGet(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`, options.auth);
+	// right after a publish, a lagging read replica can still resolve the
+	// branch to the orphaned bootstrap seed — give the real head time to land
+	for (let attempt = 0; attempt < 6 && isBootstrapCommit(commit); attempt++) {
+		await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+		commit = await apiGet(`/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`, options.auth);
+	}
 	const commitSha = commit.sha as string;
 	const treeSha = commit.commit.tree.sha as string;
 	const tree = await apiGet(`/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`, options.auth);
@@ -246,6 +258,10 @@ export function setGitHubRepoMetadata(fs: WorkspaceFileSystem, target: string, m
 	} catch (error) {
 		console.warn('minwebide: could not persist GitHub import metadata', error);
 	}
+}
+
+function isBootstrapCommit(commit: any): boolean {
+	return commit.parents?.length === 0 && commit.commit?.message === BOOTSTRAP_MESSAGE;
 }
 
 async function listChildren(fs: WorkspaceFileSystem, folder: URI): Promise<URI[]> {
