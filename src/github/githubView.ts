@@ -28,11 +28,12 @@ export interface GitHubSourceControlOptions {
 	/** Suggested repository name, pre-filled on GitHub's create-repository page. */
 	readonly defaultRepoName?: string;
 	/**
-	 * Called after a successful publish, typically to navigate the app to its
-	 * GitHub route for the new repo. When absent, the view switches to change
-	 * tracking in place.
+	 * Called (and awaited) after a successful publish, typically to seed the
+	 * app's per-repo workspace via `transplantGitHubWorkspace` and navigate to
+	 * its GitHub route. When absent, the view switches to change tracking in
+	 * place.
 	 */
-	readonly onPublished?: (result: GitHubPublishResult) => void;
+	readonly onPublished?: (result: GitHubPublishResult) => void | Promise<void>;
 }
 
 export interface GitHubWorkspaceOptions extends GitHubSourceControlOptions {
@@ -272,7 +273,7 @@ function attachView(
 				});
 				channel.appendLine(`Published ${result.fileCount} files to ${result.htmlUrl} (${result.ref} @ ${result.commitSha.slice(0, 7)})`);
 				if (options.onPublished) {
-					options.onPublished(result);
+					await options.onPublished(result);
 					return;
 				}
 			} catch (error) {

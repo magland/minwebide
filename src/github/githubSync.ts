@@ -110,19 +110,9 @@ export async function pushGitHubChanges(fs: WorkspaceFileSystem, target = '/', o
 	const { owner, repo, ref, dir } = metadata;
 	const auth = options.auth;
 
-	// fast-forward check: the branch must still point at the imported commit
-	let remoteRef;
-	try {
-		remoteRef = await githubApi('GET', `/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(ref)}`, auth);
-	} catch (error) {
-		if (error instanceof GitHubApiError && error.status === 404) {
-			throw new Error(`"${ref}" is not a branch on ${owner}/${repo} — pushing needs a branch (a tag or commit import is read-only)`);
-		}
-		throw error;
-	}
-	if (remoteRef.object.sha !== metadata.commitSha) {
-		throw new Error(`${ref} has new commits on GitHub since the import. Save your changes elsewhere, then Reload from GitHub and redo them — merging is not supported yet.`);
-	}
+	// no pre-checks against read endpoints (which can serve stale answers) —
+	// the non-force ref update at the end is GitHub's own atomic fast-forward
+	// check, and it is the only authoritative one
 
 	// upload changed and added files as blobs
 	const uriFor = (path: string) => fs.root.with({ path: target === '/' ? `/${path}` : `${target}/${path}` });
@@ -167,9 +157,7 @@ export async function pushGitHubChanges(fs: WorkspaceFileSystem, target = '/', o
 		tree: tree.sha,
 		parents: [metadata.commitSha],
 	});
-	await githubApi('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(ref)}`, auth, {
-		sha: commit.sha,
-	});
+	await updateRef(owner, repo, ref, commit.sha, auth);
 
 	// the pushed commit is the new baseline
 	const files: Record<string, GitHubFileState> = { ...metadata.files };
@@ -311,25 +299,59 @@ export async function publishGitHubRepo(fs: WorkspaceFileSystem, target = '/', o
 	const tree = await retryWhileEmpty(() => githubApi('POST', `/repos/${owner}/${repo}/git/trees`, auth, {
 		tree: paths.map(path => ({ path, mode: '100644', type: 'blob', sha: files[path].sha })),
 	}));
+	// the initial commit sits on top of the bootstrap seed (whose file is not
+	// in this tree, so it reads as deleted) — the ref update is then a plain
+	// fast-forward: atomic, no force, no orphaned commits, no read-back races
 	const commit = await githubApi('POST', `/repos/${owner}/${repo}/git/commits`, auth, {
 		message: options.message?.trim() || 'Initial commit',
 		tree: tree.sha,
-		parents: [],
+		parents: [bootstrapSha],
 	});
-	// point the branch at the real initial commit (orphaning the bootstrap) —
-	// but only if nothing else landed on it while we uploaded
-	const current = await githubApi('GET', `/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(ref)}`, auth);
-	if (current.object.sha !== bootstrapSha) {
-		throw new Error(`${owner}/${repo} changed while publishing — try again`);
-	}
-	await githubApi('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(ref)}`, auth, {
-		sha: commit.sha,
-		force: true,
-	});
+	await updateRef(owner, repo, ref, commit.sha, auth);
 
 	setGitHubRepoMetadata(fs, target, { owner, repo, ref, commitSha: commit.sha, treeSha: tree.sha, files });
 
 	return { owner, repo, ref, commitSha: commit.sha, htmlUrl: info.html_url as string, fileCount: paths.length };
+}
+
+/**
+ * Copies a GitHub-connected workspace — every file plus the provenance
+ * baseline — into another (empty) workspace file system, entirely locally.
+ * Used after a publish to seed the app's per-repo workspace without going
+ * back to GitHub: the local state IS the pushed state, byte for byte.
+ */
+export async function transplantGitHubWorkspace(source: WorkspaceFileSystem, targetFs: WorkspaceFileSystem): Promise<void> {
+	const metadata = getGitHubRepoMetadata(source, '/');
+	if (!metadata) {
+		throw new Error('The source workspace is not connected to a GitHub repository');
+	}
+	const files = await collectWorkspaceFiles(source, '/');
+	for (const [path, uri] of files) {
+		const content = await source.fileService.readFile(uri);
+		await targetFs.writeFile(`/${path}`, content.value.buffer);
+	}
+	setGitHubRepoMetadata(targetFs, '/', metadata);
+}
+
+/**
+ * Fast-forwards a branch to `sha` via a non-force ref update — GitHub's
+ * atomic compare-and-swap. A 422 means the branch moved (or isn't a branch);
+ * both become actionable errors.
+ */
+async function updateRef(owner: string, repo: string, ref: string, sha: string, auth: string): Promise<void> {
+	try {
+		await githubApi('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(ref)}`, auth, { sha });
+	} catch (error) {
+		if (error instanceof GitHubApiError && error.status === 422) {
+			if (/fast forward/i.test(error.message)) {
+				throw new Error(`${ref} has new commits on GitHub since the import. Save your changes elsewhere, then Reload from GitHub and redo them — merging is not supported yet.`);
+			}
+			if (/does not exist/i.test(error.message)) {
+				throw new Error(`"${ref}" is not a branch on ${owner}/${repo} — pushing needs a branch (a tag or commit import is read-only)`);
+			}
+		}
+		throw error;
+	}
 }
 
 function bytesToBase64(bytes: Uint8Array): string {

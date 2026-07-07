@@ -380,9 +380,12 @@ publish form: a button opens github.com/new (name pre-filled from
 that repo suffices — then pastes its URL and publishes.
 `publishGitHubRepo(fs, target, { auth, repo })` pushes the workspace as the
 initial commit; a repository that already has commits is refused, so a
-mistyped URL can never overwrite anything. Afterwards `onPublished` fires
-(typically to navigate to your app's GitHub route for the new repo); without
-it the view switches to change tracking in place. Both demo flows use this:
+mistyped URL can never overwrite anything. Afterwards `onPublished` fires and
+is awaited — typically to seed the app's per-repo workspace via
+`transplantGitHubWorkspace(sourceFs, targetFs)` (a purely local copy of files
+plus baseline; the local state IS the pushed state, so nothing is
+re-downloaded) and then navigate to the app's GitHub route. Without the hook
+the view switches to change tracking in place. Both demo flows use this:
 the regular demo workspace is publishable, and `#github/...` workspaces track
 their source repo.
 

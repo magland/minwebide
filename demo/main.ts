@@ -1,6 +1,7 @@
 import {
 	attachGitHubSourceControl, attachGitHubWorkspace, createIndexedDBFileSystem, createWorkbench,
-	loadBuiltinTheme, parseGitHubSpec, registerBuiltinLanguages, Workbench, WorkspaceFileSystem,
+	loadBuiltinTheme, parseGitHubSpec, registerBuiltinLanguages, transplantGitHubWorkspace,
+	GitHubRepoSpec, Workbench, WorkspaceFileSystem,
 } from '../src';
 import { demoCustomEditors } from './customEditors';
 import { demoRunners } from './runners';
@@ -48,11 +49,14 @@ async function createDemoWorkbench(fs: WorkspaceFileSystem, workspaceName: strin
  * reopen the stored copy, edits included, with the Source Control view
  * tracking local changes against the imported commit.
  */
+function githubWorkspaceDbName(spec: Pick<GitHubRepoSpec, 'owner' | 'repo' | 'ref'>): string {
+	return `minwebide-demo-gh-${spec.owner}-${spec.repo}${spec.ref ? `-${spec.ref}` : ''}`
+		.toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+}
+
 async function openGitHubWorkspace(specText: string): Promise<void> {
 	const spec = parseGitHubSpec(specText);
-	const dbName = `minwebide-demo-gh-${spec.owner}-${spec.repo}${spec.ref ? `-${spec.ref}` : ''}`
-		.toLowerCase().replace(/[^a-z0-9._-]/g, '-');
-	const fs = await createIndexedDBFileSystem({ dbName });
+	const fs = await createIndexedDBFileSystem({ dbName: githubWorkspaceDbName(spec) });
 	const workbench = await createDemoWorkbench(fs, `${spec.owner}/${spec.repo}`);
 	await attachGitHubWorkspace(workbench, fs, spec);
 }
@@ -75,7 +79,14 @@ async function main(): Promise<void> {
 	await attachGitHubSourceControl(workbench, fs, {
 		appName: 'minwebide demo',
 		defaultRepoName: 'minwebide-demo-workspace',
-		onPublished: ({ owner, repo }) => {
+		onPublished: async ({ owner, repo }) => {
+			// seed the repo's own workspace locally — no re-download
+			const ghFs = await createIndexedDBFileSystem({ dbName: githubWorkspaceDbName({ owner, repo }) });
+			try {
+				await transplantGitHubWorkspace(fs, ghFs);
+			} finally {
+				ghFs.dispose();
+			}
 			window.location.hash = `#github/${owner}/${repo}`;
 			window.location.reload();
 		},
