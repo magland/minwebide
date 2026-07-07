@@ -39,13 +39,13 @@ export async function getGitHubTokenUser(token: string): Promise<string | undefi
  * validates it, stores it, and resolves with the token — or undefined if the
  * user cancels.
  */
-export function requestGitHubToken(container: HTMLElement, appName = 'minwebide'): Promise<string | undefined> {
+export function requestGitHubToken(container: HTMLElement, appName = 'minwebide', intro?: string): Promise<string | undefined> {
 	return new Promise(resolve => {
 		const overlay = append(container, $('.mw-github-auth-overlay'));
 		const dialog = append(overlay, $('.mw-github-auth-dialog'));
 		append(dialog, $('.mw-github-auth-title', undefined, 'Sign in to GitHub'));
-		append(dialog, $('p.mw-github-auth-text', undefined,
-			'To push changes, continue to GitHub to create a personal access token, then paste it below. ' +
+		append(dialog, $('p.mw-github-auth-text', undefined, intro ??
+			'Continue to GitHub to create a personal access token, then paste it below. ' +
 			'The token is stored only in this browser. A fine-grained token limited to this repository works too.'));
 
 		const openButton = append(dialog, $('button.mw-github-button')) as HTMLButtonElement;

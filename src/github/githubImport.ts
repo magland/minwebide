@@ -307,14 +307,20 @@ async function fetchBlob(
 	file: { repoPath: string; sha: string },
 	auth: string | undefined,
 ): Promise<Uint8Array> {
-	const encodedPath = file.repoPath.split('/').map(encodeURIComponent).join('/');
-	try {
-		const res = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${commitSha}/${encodedPath}`);
-		if (res.ok) {
-			return new Uint8Array(await res.arrayBuffer());
+	// anonymous reads go through raw.githubusercontent.com because it doesn't
+	// count against the API rate limit; authenticated reads (needed for
+	// private repos, where raw + an Authorization header is unreliable across
+	// CORS) use the blobs API directly — the authenticated limit is ample
+	if (!auth) {
+		const encodedPath = file.repoPath.split('/').map(encodeURIComponent).join('/');
+		try {
+			const res = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${commitSha}/${encodedPath}`);
+			if (res.ok) {
+				return new Uint8Array(await res.arrayBuffer());
+			}
+		} catch {
+			// fall through to the blobs API
 		}
-	} catch {
-		// fall through to the blobs API
 	}
 	const blob = await apiGet(`/repos/${owner}/${repo}/git/blobs/${file.sha}`, auth);
 	if (blob.encoding !== 'base64') {

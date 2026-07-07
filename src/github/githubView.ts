@@ -49,9 +49,49 @@ export interface GitHubWorkspaceView {
 }
 
 /**
+ * Runs a GitHub read (import, resync) with the best available credential:
+ * `options.auth`, else the stored token, else anonymously. A stale stored
+ * token (401) is cleared and the read retried without it; a 404 with no
+ * credential — which is also how GitHub answers for private repositories —
+ * prompts for sign-in once and retries.
+ */
+async function withReadAuth<T>(
+	workbench: Workbench,
+	options: GitHubSourceControlOptions,
+	describe: string,
+	run: (auth: string | undefined) => Promise<T>,
+): Promise<T> {
+	let auth = options.auth ?? getStoredGitHubToken();
+	let prompted = false;
+	for (;;) {
+		try {
+			return await run(auth);
+		} catch (error) {
+			if (error instanceof GitHubApiError && error.status === 401 && auth && auth !== options.auth) {
+				clearGitHubToken();
+				auth = undefined;
+				continue;
+			}
+			if (error instanceof GitHubApiError && error.status === 404 && !auth && !prompted) {
+				prompted = true;
+				const token = await requestGitHubToken(workbench.element, options.appName ?? 'minwebide',
+					`${describe} was not found — if it is a private repository, sign in to access it. ` +
+					'Continue to GitHub to create a personal access token, then paste it below. The token is stored only in this browser.');
+				if (token) {
+					auth = token;
+					continue;
+				}
+			}
+			throw error;
+		}
+	}
+}
+
+/**
  * Makes a workbench a GitHub-backed workspace: imports the repository on
  * first visit (with status bar progress and a `GitHub` output channel log),
- * then attaches the source control view.
+ * then attaches the source control view. Reads use the stored token when one
+ * exists, so private repositories work; an anonymous 404 offers sign-in.
  */
 export async function attachGitHubWorkspace(
 	workbench: Workbench,
@@ -67,12 +107,12 @@ export async function attachGitHubWorkspace(
 	if (!getGitHubRepoMetadata(fs, target)) {
 		channel.appendLine(`Importing github.com/${parsed.owner}/${parsed.repo}${parsed.ref ? `@${parsed.ref}` : ''}...`);
 		try {
-			imported = await importGitHubRepo(fs, parsed, {
+			imported = await withReadAuth(workbench, options, `github.com/${parsed.owner}/${parsed.repo}`, auth => importGitHubRepo(fs, parsed, {
 				target,
 				clean: true,
-				auth: options.auth,
+				auth,
 				onProgress: p => workbench.statusBar.setItem('github', 'left', `Importing ${p.written}/${p.total}`, { icon: 'cloud-download' }),
-			});
+			}));
 			channel.appendLine(`Imported ${imported.fileCount} files at commit ${imported.commitSha.slice(0, 7)}`);
 			for (const skip of imported.skipped) {
 				channel.appendLine(`Skipped ${skip.path} (${skip.reason})`);
@@ -398,10 +438,10 @@ function attachView(
 			resyncButton.disabled = true;
 			pushButton.disabled = true;
 			try {
-				const result = await resyncGitHubRepo(fs, target, {
-					auth: options.auth,
+				const result = await withReadAuth(workbench, options, repoLabel, auth => resyncGitHubRepo(fs, target, {
+					auth,
 					onProgress: p => { messageEl.textContent = `Reloading ${p.written}/${p.total}...`; },
-				});
+				}));
 				channel.appendLine(`Reloaded ${result.fileCount} files at commit ${result.commitSha.slice(0, 7)}`);
 				// the reload is an explicit revert: open editors follow, unsaved edits included
 				await workbench.editorArea.reloadFromDisk(true);

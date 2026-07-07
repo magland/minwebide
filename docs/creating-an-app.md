@@ -350,7 +350,10 @@ await attachGitHubWorkspace(workbench, fs, `${owner}/${repo}`);
 
 - The first visit imports the repo (status bar progress, a `GitHub` output
   channel) and opens its README (`autoOpenReadme: false` to disable). Later
-  visits reopen the stored local copy, edits included.
+  visits reopen the stored local copy, edits included. Reads use the stored
+  sign-in token when one exists, so **private repositories work**; when an
+  anonymous open 404s (GitHub's answer for private repos too), a sign-in
+  prompt appears and the import retries.
 - A **Source Control** side view (activity bar icon with a pending-changes
   badge) lists the files modified/added/deleted relative to the imported
   commit — compared by git blob SHA, so only real content differences count —
