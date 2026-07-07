@@ -429,6 +429,13 @@ const config: ProjectAppConfig = {
 await startProjectApp(document.getElementById('app')!, theme, config);
 ```
 
+Repositories opened via `#/github/<spec>` are also remembered (localStorage
+key `<appId>.github-history`), and the landing page lists them under
+"GitHub repositories", most recent first, each removable — removing an
+entry keeps the local workspace copy. The history helpers are exported as
+`listGitHubHistory`, `recordGitHubVisit`, `removeGitHubVisit`, and
+`canonicalGitHubSpec`.
+
 `startProjectApp` returns the `ProjectRegistry` (list/create/rename/
 duplicate/delete projects, each backed by `<appId>-project-<id>` databases)
 for app code that needs it; the pieces are also exported individually

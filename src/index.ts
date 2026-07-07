@@ -28,6 +28,8 @@ export {
 	startProjectApp,
 } from './shell/projectApp';
 export type { AppWorkbench, ProjectAppConfig } from './shell/projectApp';
+export { canonicalGitHubSpec, listGitHubHistory, recordGitHubVisit, removeGitHubVisit } from './shell/githubHistory';
+export type { GitHubVisit } from './shell/githubHistory';
 
 export { loadColorTheme, applyThemeToElement, WorkbenchTheme } from './theme/themes';
 export type { TokenColorRule } from './theme/themes';

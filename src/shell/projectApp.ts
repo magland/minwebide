@@ -4,6 +4,7 @@ import type { Workbench } from '../workbench/workbench';
 import { attachGitHubSourceControl, attachGitHubWorkspace } from '../github/githubView';
 import { parseGitHubSpec, type GitHubRepoSpec } from '../github/githubImport';
 import { transplantGitHubWorkspace } from '../github/githubSync';
+import { listGitHubHistory, recordGitHubVisit, removeGitHubVisit } from './githubHistory';
 import { createProjectRegistry, type ProjectInfo, type ProjectRegistry } from './projectRegistry';
 import './projectLanding.css';
 
@@ -144,6 +145,8 @@ export async function openGitHubRoute(container: HTMLElement, specText: string, 
 		// imports on first visit (status bar progress + GitHub output channel);
 		// the README is left to openStartingFile, which prefers app entry points
 		const view = await attachGitHubWorkspace(ide.workbench, fs, spec, { autoOpenReadme: false, appName: config.appName });
+		// only repos that actually opened make it into the landing-page history
+		recordGitHubVisit(config.appId, spec);
 		await openStartingFile(fs, ide.workbench, config.startingFiles);
 
 		return {
@@ -323,6 +326,40 @@ export function renderProjectLanding(container: HTMLElement, theme: WorkbenchThe
 		}
 	};
 	renderList();
+
+	// recently visited #/github repositories; hidden until there are any
+	const githubSection = el('section', 'landing-section');
+	githubSection.appendChild(el('h2', undefined, 'GitHub repositories'));
+	const githubList = el('div', 'landing-projects');
+	githubSection.appendChild(githubList);
+	inner.appendChild(githubSection);
+
+	const renderGitHubList = () => {
+		const visits = listGitHubHistory(config.appId);
+		githubSection.style.display = visits.length === 0 ? 'none' : '';
+		githubList.textContent = '';
+		for (const visit of visits) {
+			const row = el('div', 'landing-project');
+
+			const name = el('a', 'landing-project-name', visit.spec);
+			name.href = `#/github/${encodeURI(visit.spec)}`;
+			row.appendChild(name);
+
+			row.appendChild(el('span', 'landing-project-meta', `visited ${formatWhen(visit.lastVisitedAt)}`));
+
+			const actions = el('span', 'landing-project-actions');
+			const remove = el('button', 'landing-action', 'Remove');
+			remove.title = 'Remove from this list (the local copy is kept)';
+			remove.addEventListener('click', () => {
+				removeGitHubVisit(config.appId, visit.spec);
+				renderGitHubList();
+			});
+			actions.appendChild(remove);
+			row.appendChild(actions);
+			githubList.appendChild(row);
+		}
+	};
+	renderGitHubList();
 
 	return {
 		dispose() {
